@@ -143,7 +143,7 @@ curl -s "https://serpapi.com/search?engine=google_travel_explore&departure_id=SF
 ## Workflow: Compare Award vs Cash
 
 1. Search cash prices on Google Flights via SerpAPI
-2. Calculate Chase portal cost: cash_price / 0.015 = UR points needed
+2. Estimate portal cost. Chase uses dynamic "Points Boost" pricing (1.5 to 2.0cpp on select bookings, not a flat rate). Amex/Capital One ~1.0cpp. For rough math use 1.5cpp Chase, 1.0cpp others, but always recommend checking the actual portal price.
 3. Compare with award price from Seats.aero
 4. Lower number wins (accounting for the value you place on each currency)
 
