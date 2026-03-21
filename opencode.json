@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config-schema.json",
+  "mcp": {
+    "skiplagged": {
+      "type": "remote",
+      "url": "https://mcp.skiplagged.com/mcp",
+      "enabled": true
+    },
+    "kiwi": {
+      "type": "remote",
+      "url": "https://mcp.kiwi.com",
+      "enabled": true
+    },
+    "trivago": {
+      "type": "remote",
+      "url": "https://mcp.trivago.com/mcp",
+      "enabled": true
+    },
+    "ferryhopper": {
+      "type": "remote",
+      "url": "https://mcp.ferryhopper.com/mcp",
+      "enabled": true
+    },
+    "liteapi": {
+      "type": "remote",
+      "url": "https://mcp.liteapi.travel/api/mcp",
+      "headers": {
+        "Authorization": "Bearer $LITEAPI_API_KEY"
+      },
+      "enabled": true
+    },
+    "airbnb": {
+      "type": "local",
+      "command": ["npx", "-y", "@openbnb/mcp-server-airbnb", "--ignore-robots-txt"],
+      "enabled": true
+    }
+  }
+}
