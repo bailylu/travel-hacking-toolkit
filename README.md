@@ -4,31 +4,6 @@ AI-powered travel hacking with points, miles, and award flights. Drop-in skills 
 
 Ask your AI to find you a 60,000-mile business class flight to Tokyo. It'll search award availability across 25+ programs, compare against cash prices, check your loyalty balances, and tell you the best play.
 
-## What's Included
-
-### MCP Servers (real-time tools)
-
-| Server | What It Does | API Key |
-|--------|-------------|---------|
-| [Skiplagged](https://skiplagged.com) | Flight search with hidden city fares | None (free) |
-| [Kiwi.com](https://www.kiwi.com) | Flights with virtual interlining (creative cross-airline routing) | None (free) |
-| [Trivago](https://mcp.trivago.com/docs) | Hotel metasearch across booking sites | None (free) |
-| [Ferryhopper](https://ferryhopper.github.io/fh-mcp/) | Ferry routes across 33 countries, 190+ operators | None (free) |
-| [Airbnb](https://github.com/openbnb-org/mcp-server-airbnb) | Search Airbnb listings, property details, pricing | None (free) |
-| [LiteAPI](https://mcp.liteapi.travel) | Hotel search with live rates and booking | [LiteAPI](https://liteapi.travel) |
-
-### Skills (API knowledge for your AI)
-
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **duffel** | Real-time flight search across airlines via Duffel API | [Duffel](https://duffel.com) |
-| **seats-aero** | Award flight availability across 25+ mileage programs | [Seats.aero](https://seats.aero) Pro/Partner |
-| **awardwallet** | Loyalty program balances, elite status, history | [AwardWallet](https://business.awardwallet.com) Business |
-| **serpapi** | Google Flights cash prices, hotels, destination discovery | [SerpAPI](https://serpapi.com) |
-| **rapidapi** | Secondary prices via Google Flights Live + Booking.com | [RapidAPI](https://rapidapi.com) |
-| **atlas-obscura** | Hidden gems near any destination | None (free) |
-| **scandinavia-transit** | Trains, buses, ferries in Norway/Sweden/Denmark | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) |
-
 ## Quick Start
 
 ```bash
@@ -57,6 +32,31 @@ claude --strict-mcp-config --mcp-config .mcp.json
 ```
 
 The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the config file directly. This is more reliable than auto-discovery ([known issue](https://github.com/anthropics/claude-code/issues/5037)).
+
+## What's Included
+
+### MCP Servers (real-time tools)
+
+| Server | What It Does | API Key |
+|--------|-------------|---------|
+| [Skiplagged](https://skiplagged.com) | Flight search with hidden city fares | None (free) |
+| [Kiwi.com](https://www.kiwi.com) | Flights with virtual interlining (creative cross-airline routing) | None (free) |
+| [Trivago](https://mcp.trivago.com/docs) | Hotel metasearch across booking sites | None (free) |
+| [Ferryhopper](https://ferryhopper.github.io/fh-mcp/) | Ferry routes across 33 countries, 190+ operators | None (free) |
+| [Airbnb](https://github.com/openbnb-org/mcp-server-airbnb) | Search Airbnb listings, property details, pricing | None (free) |
+| [LiteAPI](https://mcp.liteapi.travel) | Hotel search with live rates and booking | [LiteAPI](https://liteapi.travel) |
+
+### Skills (API knowledge for your AI)
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **duffel** | Real-time flight search across airlines via Duffel API | [Duffel](https://duffel.com) |
+| **seats-aero** | Award flight availability across 25+ mileage programs | [Seats.aero](https://seats.aero) Pro/Partner |
+| **awardwallet** | Loyalty program balances, elite status, history | [AwardWallet](https://business.awardwallet.com) Business |
+| **serpapi** | Google Flights cash prices, hotels, destination discovery | [SerpAPI](https://serpapi.com) |
+| **rapidapi** | Secondary prices via Google Flights Live + Booking.com | [RapidAPI](https://rapidapi.com) |
+| **atlas-obscura** | Hidden gems near any destination | None (free) |
+| **scandinavia-transit** | Trains, buses, ferries in Norway/Sweden/Denmark | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) |
 
 ## How It Works
 
