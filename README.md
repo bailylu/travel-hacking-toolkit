@@ -43,7 +43,7 @@ The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the co
 | [Kiwi.com](https://www.kiwi.com) | Flights with virtual interlining (creative cross-airline routing) | None (free) |
 | [Trivago](https://mcp.trivago.com/docs) | Hotel metasearch across booking sites | None (free) |
 | [Ferryhopper](https://ferryhopper.github.io/fh-mcp/) | Ferry routes across 33 countries, 190+ operators | None (free) |
-| [Airbnb](https://github.com/openbnb-org/mcp-server-airbnb) | Search Airbnb listings, property details, pricing | None (free) |
+| [Airbnb](https://github.com/borski/mcp-server-airbnb) | Search Airbnb listings, property details, pricing. Patched with geocoding fix and property type filter. | None (free) |
 | [LiteAPI](https://mcp.liteapi.travel) | Hotel search with live rates and booking | [LiteAPI](https://liteapi.travel) |
 
 ### Skills (API knowledge for your AI)

@@ -25,7 +25,7 @@
     },
     "airbnb": {
       "command": "npx",
-      "args": ["-y", "@openbnb/mcp-server-airbnb", "--ignore-robots-txt"]
+      "args": ["-y", "@borski/mcp-server-airbnb", "--ignore-robots-txt"]
     }
   }
 }
