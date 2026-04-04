@@ -264,6 +264,46 @@ Finding the deal is half the battle. Telling the user how to actually book it is
 | Qatar Privilege Club | N/A | Yes (qatarairways.com) |
 | Hyatt | N/A | Yes (hyatt.com or app) |
 
+## Premium Hotel Programs
+
+Three data files cover hotel programs with elite-like benefits for cardholders:
+
+| File | Program | Properties | Benefits |
+|------|---------|-----------|----------|
+| `data/fhr-properties.json` | Amex Fine Hotels & Resorts | 1,807 | $600/yr Plat credit (2x $300 semi-annual), $100 property credit, daily breakfast for 2, 12pm checkin, guaranteed 4pm checkout, room upgrade, wifi |
+| `data/thc-properties.json` | Amex The Hotel Collection | 1,299 | $600/yr Plat credit (2x $300 semi-annual, shared with FHR), $100 property credit, 12pm checkin, room upgrade, late checkout (2-night min) |
+| `data/chase-edit-properties.json` | Chase Edit (Sapphire Reserve) | 1,553 | $500/yr statement credit (2x $250), $100 property credit, daily breakfast, wifi, room upgrade, early/late checkout |
+
+**When recommending hotels, cross-reference these lists.** If a property is in FHR, THC, or Chase Edit, mention it. The credit alone ($100-150) can meaningfully offset the nightly rate.
+
+**Chase Sapphire Reserve hotel credits (2026):**
+
+**The Edit credit: $500/yr** (two separate $250 credits, usable anytime during the calendar year). Two-night minimum, prepaid through Chase Travel. Each stay also gets the $100 property credit + daily breakfast + room upgrade. Points Boost gives 2cpp when redeeming UR at Edit hotels. **Always compare Chase Travel rates against direct booking.**
+
+**Select Hotels credit: $250 one-time (2026 only).** Prepaid 2+ night stay at: IHG, Minor Hotels, Montage, Omni, Pan Pacific, Pendry, or Virgin Hotels. Booked through Chase Travel. Expires Dec 31, 2026. Earns hotel loyalty points AND elite night credits on the full purchase amount.
+
+**Stacking strategy:** Properties that are both Edit hotels AND one of the 7 Select Hotels brands can trigger BOTH credits on a single stay ($250 Edit + $250 Select = $500 back). Use [awardhelper.com/csr-hotels](https://www.awardhelper.com/csr-hotels) to find stackable properties.
+
+**Budget option:** Use the $250 Select Hotels credit at affordable IHG properties (Holiday Inn, Holiday Inn Express). A 2-night prepaid stay around $250 total gets nearly fully covered by the credit alone.
+
+**Amex Platinum hotel credit (FHR or THC):** $600 annual total, split $300 per half-year (Jan-Jun and Jul-Dec). Use it or lose it, does not roll over. Prepaid bookings through Amex Travel with Platinum or Business Platinum. FHR and THC share the same $600 pool.
+- **FHR = 1-night minimum.** THC = 2-night minimum.
+- **Credit triggers on booking/prepayment, not stay date.** Book in June for a September trip and the H1 credit still fires.
+- **5x MR points still earned** on Amex Travel bookings that trigger the credit.
+- **No enrollment needed.** Just book through Amex Travel and pay with your Platinum.
+- **Can split across multiple bookings** if a stay costs less than $300 per half.
+- **Cancellation = clawback** unless you rebook before the credit expires.
+- **Elite status recognition is hit or miss** through Amex Travel. Plug in loyalty numbers anyway.
+- **MaxFHR.com** is a great tool for finding the cheapest FHR/THC properties by date and destination.
+- **Always compare Amex Travel rates against booking direct.** Portal rates can be higher.
+
+**FHR data includes:** coordinates, Amex reservation links, Google Travel price calendar links, and credit details.
+**Chase Edit data includes:** 190 properties tagged `budget_friendly` from the "Potentially Cheaper Ones" category.
+
+**Data source:** 美卡指南 (US Card Guide) Google My Maps, maintained by Scott. To refresh, re-pull the KML files:
+- FHR/THC: `https://www.google.com/maps/d/kml?mid=1HygPCP9ghtDptTNnpUpd_C507Mq_Fhec&forcekml=1`
+- Chase Edit: `https://www.google.com/maps/d/kml?mid=1Ickidw1Z6ACres9EnbM2CmPObYsuijM&forcekml=1`
+
 ## Important Notes
 
 - Seats.aero data is cached, not live. Check `ComputedLastSeen` for freshness. Stale data (24h+) means verify on the airline site before booking.
@@ -272,3 +312,83 @@ Finding the deal is half the battle. Telling the user how to actually book it is
 - Atlas Obscura and Airbnb scrape websites. Be respectful with request volume.
 - Skiplagged, Kiwi.com, Trivago, and Ferryhopper need no setup. They just work.
 - Ferryhopper focuses on European/Mediterranean routes. Great for Greek islands, Croatia, Scandinavia.
+
+## Lessons Learned
+
+Hard-won knowledge from actual searches. Reference these before making the same mistakes.
+
+### Seats.aero: Search ALL Sources, Show ALL Results
+
+When searching Seats.aero, NEVER filter by source on the initial search. Always pull ALL programs first.
+
+**The mandatory workflow for any route:**
+1. Search Seats.aero with NO source filter. Pull ALL programs. Show full results sorted by cheapest.
+2. For EVERY program in results, trace the full reachability chain:
+   a. Direct balance? (Check AwardWallet if connected)
+   b. Transfer path? (Check `data/transfer-partners.json` for EVERY currency: Amex MR, Chase UR, Bilt, Capital One)
+   c. Alliance chain? Identify the operating airline's alliance (`data/alliances.json`), then find ALL programs in that alliance or with bilateral partnerships (`data/partner-awards.json`), then check which of THOSE programs are reachable via transfer.
+   d. Cross-alliance? Check `data/partner-awards.json` cross_alliance_highlights and bilateral partners.
+3. For reachable programs with NO cached Seats.aero data, check the program's website directly (airfrance.com, united.com, etc.)
+4. Present the COMPLETE picture: every option, reachable or not, with the transfer chain spelled out.
+5. Only THEN compare award vs cash.
+
+**Common failure mode:** Seeing an airline in results, checking one or two obvious programs, declaring awards "unreachable" or "bad value," and recommending cash. You MUST trace every possible chain through alliances and bilateral partnerships. If the operating airline is in an alliance, EVERY program that books that alliance is a potential path.
+
+**"No cached availability" is not the final word.** It means Seats.aero hasn't scraped it recently. When a reachable program shows no cached results, search the airline's website directly before declaring awards dead.
+
+### Never Trust Data Files Over Reality
+
+Data files are reference material, not gospel. Airline partnerships change constantly. When a user says a booking path works that your data doesn't show, verify on the actual booking website FIRST before pushing back. The website is the source of truth. Your files are a cache. If the data file disagrees with reality, update the data file.
+
+### Source Accuracy Hierarchy
+
+**Duffel > Airline website > SerpAPI > Skiplagged/Kiwi**
+
+1. **Duffel returns real GDS prices per fare class.** These are bookable. Tested: Duffel showed $271 basic/$325 main. SerpAPI showed $541 for the same flight. The gap was consistent across multiple itineraries.
+2. **SerpAPI (Google Flights) inflates prices.** Google Flights often shows "main cabin" or bundled fares, not the cheapest bookable fare class. Useful for Google Hotels and destination discovery, but do not trust it as the sole source for flight cash prices.
+3. **Kiwi returns garbage on small markets.** Filter hard or skip Kiwi for domestic routes to small airports.
+
+### Southwest Is Special
+
+1. **Southwest is NOT in any GDS.** Duffel, Skiplagged, Kiwi, and Seats.aero will never return SW flights. The only sources are: the Southwest website directly or user-provided screenshots.
+2. **SerpAPI does return SW prices** but they're often inflated like all SerpAPI flight prices. Treat as directional only.
+3. **SW Companion Pass math is different from everything else.** With CP, you buy ONE ticket and the companion flies free. The cash comparison is the Choice fare for one ticket (not two Basic fares). Points comparison: total points covers both travelers. This changes cpp calculations significantly.
+4. **Cash SW flights require Choice fare (or higher) for the companion to fly free.** Wanna Get Away (Basic) does NOT qualify. Critical detail.
+5. **SW points pricing must come from southwest.com.** No third-party source has it.
+
+### Companion Pass CPP Math
+
+The correct formula when Companion Pass is in play:
+
+```
+Total cash value = choice_fare_cash × 2 passengers
+CPP = total_cash_value / total_points × 100
+```
+
+One ticket's worth of points buys travel for two people. Always frame it as "points bought $X of travel for 2 people."
+
+### Small Market Airports
+
+Small airports have limited award availability. Seats.aero cached data will be sparse. When searching small markets:
+1. Duffel for cash prices (works fine, GDS has the inventory)
+2. Don't bother with Seats.aero cached search (data too sparse)
+3. Check airline-specific award pricing via the program's website if needed
+4. SW Companion Pass often wins on small domestic markets because the points cost is low and CP doubles the value
+
+### Layover and Time Preferences
+
+Ask the user for their preferences on the first search. Key questions:
+- Minimum and maximum layover time
+- Earliest acceptable departure time
+- Red-eye tolerance
+- Lounge access (changes how long layovers feel)
+
+Store their answers and apply to all subsequent searches in the session.
+
+### Duffel Limitations
+
+- **No Southwest.** SW is not in any GDS. Period.
+- **No award pricing.** Duffel shows cash fares only. Use Seats.aero for award availability.
+- **Offers expire in 15-30 minutes.** Don't cache Duffel results across sessions.
+- **60 requests per 60 seconds rate limit.** Parallel searches are fine but don't go crazy.
+- **Returns multiple fare classes for the same flight.** This is a feature. You'll see basic economy at one price and main cabin at another for the same routing. Use the cheapest bookable class for cpp comparison unless the user specifies a fare preference.
