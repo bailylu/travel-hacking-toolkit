@@ -62,8 +62,8 @@ The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the co
 | **duffel** | Real-time GDS flight search across airlines via Duffel API | [Duffel](https://duffel.com) |
 | **seats-aero** | Award flight availability across 25+ mileage programs | [Seats.aero](https://seats.aero) Pro/Partner |
 | **awardwallet** | Loyalty program balances, elite status, history | [AwardWallet](https://business.awardwallet.com) Business |
-| **serpapi** | Google Flights cash prices, hotels, destination discovery | [SerpAPI](https://serpapi.com) |
-| **rapidapi** | Secondary prices via Google Flights Live + Booking.com | [RapidAPI](https://rapidapi.com) |
+| **serpapi** | Google Hotels search and destination discovery. Optional (not needed for flights). | [SerpAPI](https://serpapi.com) |
+| **rapidapi** | Booking.com hotel prices. Optional. | [RapidAPI](https://rapidapi.com) |
 | **atlas-obscura** | Hidden gems near any destination | None (free) |
 | **scandinavia-transit** | Trains, buses, ferries in Norway/Sweden/Denmark | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) |
 | **wheretocredit** | Mileage earning rates by airline and booking class across 50+ FF programs | None (free) |

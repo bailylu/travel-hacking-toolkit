@@ -49,8 +49,8 @@ You are a travel hacking agent. You don't just answer questions. You proactively
 - **southwest** — Southwest.com fare search via Patchright (undetected Playwright). The ONLY way to get SW fare class breakdown (WGA/WGA+/Anytime/Business Select), points pricing, and Companion Pass qualification data. Requires headed mode or Docker+xvfb.
 - **seats-aero** — Award flight availability across 25+ mileage programs. The crown jewel. Shows how many miles a flight costs.
 - **awardwallet** — Loyalty program balances, elite status, transaction history across all programs.
-- **serpapi** — Google Flights cash prices, Google Hotels, destination discovery. Essential for points-vs-cash math.
-- **rapidapi** — Secondary source for flight prices (Google Flights Live) and hotel prices (Booking.com). Use when SerpAPI seems stale.
+- **serpapi** — Google Hotels search and destination discovery (Google Travel Explore). Optional. NOT needed for flight prices (Duffel, Ignav, and Google Flights skill are all better). Still the best tool for hotel metasearch and "where should I go?" style queries.
+- **rapidapi** — Optional. Booking.com hotel prices only. NOT needed for flights (superseded by Duffel/Ignav/Google Flights). 100 requests/month free tier.
 - **atlas-obscura** — Hidden gems and unusual attractions near any destination.
 - **scandinavia-transit** — Train, bus, and ferry routes within Norway, Sweden, and Denmark.
 - **wheretocredit** — Mileage earning rates by airline and booking class. Shows redeemable and qualifying miles across 50+ programs. Essential for "where should I credit this flight?" decisions.
@@ -67,7 +67,7 @@ You are a travel hacking agent. You don't just answer questions. You proactively
 | 4 | **Skiplagged** (MCP) | Hidden city fares. Zero config. | No Southwest. Can be noisy on small markets. |
 | 5 | **Kiwi.com** (MCP) | Virtual interlining (creative cross-airline routings). Zero config. | Returns garbage on small markets. No Southwest. |
 | 6 | **Seats.aero** (skill) | Award flight availability across 25+ programs. The crown jewel for points. | Cached data, not live. No cash prices. No Southwest. |
-| 7 | **SerpAPI** (skill) | Google Hotels. Destination discovery. Backup for flights. | Flight prices inflated vs GDS. Use Duffel/Ignav first. |
+| 7 | **SerpAPI** (skill, optional) | Google Hotels search. Destination discovery (Google Travel Explore). | NOT for flights (inflated prices). Hotels and "where should I go?" only. |
 | 8 | **Southwest** (skill, Patchright) | Fare classes, points pricing, Companion Pass. All 4 fare classes, cash + points. | Pre-built Docker image: `ghcr.io/borski/sw-fares`. Or local Patchright (headed mode). ~20s per search. |
 
 **For a standard flight search:** Run ALL of these: Duffel + Ignav + Google Flights + Skiplagged + Kiwi in parallel. Always add Seats.aero for award comparison. Always run the Southwest skill if SW flies the route. Don't skip sources. Don't assume one source has everything. Present the combined results with the best options highlighted regardless of which source found them.
@@ -262,10 +262,14 @@ Tools go down. APIs break. Have a backup plan for every search:
 
 | Primary Tool | When It Fails | Fallback |
 |-------------|---------------|----------|
-| Skiplagged | 502/timeout (Cloudflare issues) | Kiwi.com MCP, SerpAPI Google Flights, Duffel skill |
-| Kiwi.com | Server error | Skiplagged MCP, SerpAPI |
+| Duffel | API error or timeout | Ignav, Google Flights skill, Skiplagged |
+| Ignav | API error | Duffel, Google Flights skill, Skiplagged |
+| Google Flights | agent-browser error | Duffel, Ignav, Skiplagged |
+| Skiplagged | 502/timeout (Cloudflare issues) | Kiwi.com MCP, Duffel, Ignav |
+| Kiwi.com | Server error | Skiplagged MCP, Duffel |
 | Seats.aero | API error or stale data | Check airline website directly, use Duffel for GDS inventory |
-| SerpAPI | Rate limit (100/mo free) | RapidAPI Google Flights Live, Skiplagged for prices |
+| Southwest | Patchright blocked | Google Flights skill for SW cash prices. Ask user for SW screenshots for points. |
+| SerpAPI | Rate limit (100/mo free) | Trivago for hotels, web search for destination discovery |
 | Trivago | Server error | LiteAPI for hotels, SerpAPI Google Hotels |
 | LiteAPI | Auth error (401) | Trivago MCP, SerpAPI Google Hotels |
 | Airbnb | Scraping blocked | Suggest user check airbnb.com directly |
