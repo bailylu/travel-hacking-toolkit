@@ -108,8 +108,12 @@ The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the co
 | **premium-hotels** | Search 4,659 Amex FHR/THC + Chase Edit hotels by city. Compare credits, find stacking opportunities. | None (free, local data) |
 | **transfer-partners** | Find the cheapest way to book awards using your transferable points. Cross-references seats.aero with transfer ratios from 6 card issuers. | None (free, local data) |
 | **trip-calculator** | "Cash or points?" answered with math. Compares total cost factoring in transfer ratios, taxes, and opportunity cost. | None (free, local data) |
-| **chase-travel** | Chase UR travel portal: flight + hotel search with Points Boost detection and Edit hotel benefits. Requires Sapphire Reserve or Preferred. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker support included.) |
-| **amex-travel** | Amex Travel portal: flight + hotel search with IAP discount detection and FHR/THC hotel benefits. Requires Platinum Card. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker support included.) |
+| **compare-flights** | Unified flight comparison across ALL sources. Orchestrates Duffel, Ignav, Google Flights, Skiplagged, Kiwi, seats.aero, Southwest, Chase, and Amex in parallel. Auto-applies transfer optimization. | Uses individual skill keys |
+| **compare-hotels** | Unified hotel comparison across portals, metasearch, and Airbnb. Identifies FHR/Edit stacking opportunities. | Uses individual skill keys |
+| **award-calendar** | Find the cheapest award dates for a route across a date range. Calendar grid view with best deals highlighted. | Seats.aero Pro |
+| **trip-planner** | Full trip planning: flights + hotels + points optimization in one shot. "Plan a trip to Paris Aug 11-15." | Uses individual skill keys |
+| **chase-travel** | Chase UR travel portal: flight + hotel search with Points Boost detection and Edit hotel benefits. Requires Sapphire Reserve or Preferred. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker: `ghcr.io/borski/chase-travel`.) |
+| **amex-travel** | Amex Travel portal: flight + hotel search with IAP discount detection and FHR/THC hotel benefits. Requires Platinum Card. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker: `ghcr.io/borski/amex-travel`.) |
 
 ## How It Works
 
@@ -129,20 +133,52 @@ MCP (Model Context Protocol) servers give your AI real-time tools it can call di
 
 Skiplagged, Kiwi.com, Trivago, Ferryhopper, and Airbnb need no setup at all. LiteAPI is also a remote server but needs an API key configured in your settings.
 
+## Which Skill Do I Use?
+
+```
+"Plan a trip to Paris"
+  └─→ trip-planner (runs everything below automatically)
+
+"Find flights SFO to CDG"
+  ├─ Know exact dates? → compare-flights (all sources in parallel)
+  └─ Flexible dates? → award-calendar (cheapest dates for a route)
+
+"Find hotels in Paris"
+  └─→ compare-hotels (portals + metasearch + Airbnb)
+
+"Should I use points or cash?"
+  └─→ trip-calculator (CPP analysis + opportunity cost)
+
+"Which of my points should I use?"
+  └─→ transfer-partners (cheapest transfer path)
+
+"Which FHR/Edit hotels are in Stockholm?"
+  └─→ premium-hotels (local data, instant)
+
+"Check my SW reservations for price drops"
+  └─→ southwest (change flight monitor)
+```
+
+The **orchestration skills** (`trip-planner`, `compare-flights`, `compare-hotels`) call the individual source skills automatically. Start with those unless you need a specific source.
+
 ## The Travel Hacking Workflow
 
 The core question: **"Should I burn points or pay cash?"**
 
-1. **Search ALL flight sources** — Duffel + Ignav + Google Flights + Skiplagged + Kiwi for cash prices. Seats.aero for award availability. Southwest skill for SW-specific fare classes and points.
-2. **Estimate portal value** — Portal rates are dynamic now. Chase "Points Boost" (June 2025) offers 1.5 to 2.0cpp on select bookings, not a flat rate. Amex/Capital One ~1.0cpp. Check the actual portal for your specific booking.
-3. **Compare** — Lower number wins
-4. **Check balances** — AwardWallet confirms you have enough
-5. **Book it** — Use booking links from Seats.aero, Duffel, or Ignav
+1. **Search ALL flight sources** — Duffel + Ignav + Google Flights + Skiplagged + Kiwi for cash. Seats.aero for awards. Southwest for SW points. Chase + Amex portals for pay-with-points.
+2. **Optimize transfers** — `transfer-partners` finds the cheapest path from your credit card points to the loyalty program offering the best deal.
+3. **Compare** — `trip-calculator` shows CPP for each option. Higher CPP = better use of points. Below floor valuation = pay cash instead.
+4. **Check balances** — AwardWallet confirms you have enough points.
+5. **Book it** — Use booking links from Seats.aero, Duffel, or Ignav. Don't transfer points until you've confirmed availability on the airline's site.
 
 ### Example Prompts
 
 ```
+"Plan a trip to Paris Aug 11-15 in business class"
 "Find me the cheapest business class award from SFO to Tokyo in August"
+"When's the cheapest time to fly SFO to NRT on points?"
+"Compare all options for SFO to CDG round trip"
+"Find hotels in Stockholm, include Airbnb"
 "Compare points vs cash for a round trip JFK to London next March"
 "What are my United miles and Chase UR balances?"
 "Check my Southwest reservations for price drops"
@@ -153,7 +189,6 @@ The core question: **"Should I burn points or pay cash?"**
 "Which FHR and Chase Edit hotels are in Stockholm? Any stacking opportunities?"
 "What's the Points Boost rate for SFO to Tokyo business class on Chase?"
 "Compare Amex IAP fares vs cash for business class to Paris"
-"Search Chase Edit hotels in Oslo and compare against FHR benefits"
 ```
 
 ## Project Structure

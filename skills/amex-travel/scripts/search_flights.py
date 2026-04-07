@@ -1058,10 +1058,31 @@ def extract_app_data_hotels(page, timeout=90):
     try:
         offer_cards = page.evaluate("""() => {
             const cards = document.querySelectorAll('[data-testid="hotel-offer-card"]');
-            return Array.from(cards).map(el => ({
-                testid: 'hotel-offer-card',
-                text: el.innerText?.substring(0, 2000) || ''
-            }));
+            return Array.from(cards).map(el => {
+                // Extract structured data via data-testid attributes first
+                const priceEl = el.querySelector('[data-testid="offer-prices-current-price"]');
+                const totalEl = el.querySelector('[data-testid="offer-prices-total-price"]');
+                const pointsEl = el.querySelector('[data-testid="offer-prices-total-points"]');
+                const titleEl = el.querySelector('[data-testid="hotel-card-content-title"]');
+                const starEl = el.querySelector('[data-testid="hotel-card-star-rating"]');
+                const taBtn = el.querySelector('[data-testid="tripadvisor-reviews-button"]');
+                const earnEl = el.querySelector('[data-testid="earn-points-info-badge"]');
+                const selectBtn = el.querySelector('[data-testid^="hotel-offer-button-"]');
+
+                return {
+                    testid: 'hotel-offer-card',
+                    text: el.innerText?.substring(0, 4000) || '',
+                    // Structured fields (more reliable than text parsing)
+                    s_name: titleEl?.textContent?.trim() || '',
+                    s_price_per_night: priceEl?.textContent?.trim() || '',
+                    s_total_price: totalEl?.textContent?.trim() || '',
+                    s_points: pointsEl?.textContent?.trim() || '',
+                    s_star_info: starEl?.textContent?.trim() || '',
+                    s_ta_reviews: taBtn?.textContent?.trim() || '',
+                    s_earn: earnEl?.textContent?.trim() || '',
+                    s_select_label: selectBtn?.getAttribute('aria-label') || '',
+                };
+            });
         }""")
         if offer_cards and len(offer_cards) > 0:
             print(
@@ -1670,31 +1691,47 @@ def _parse_hotels_from_saved(data):
     return []
 
 
-def _parse_offer_card_text(text):
-    """Parse a hotel-offer-card text block into structured data.
+def _parse_offer_card_text(card_data):
+    """Parse a hotel-offer-card into structured data.
 
-    Each hotel-offer-card follows this layout:
-      [Fine Hotels and Resorts | The Hotel Collection]  (optional, line 1)
-      [Earn 5 times points]  (optional)
-      [EARN 5X POINTS]  (optional)
-      Hotel Name
-      X-star hotel|City|Distance
-      Trip Advisor rating X.X of 5.
-      Based on NNNN reviews
-      [Program Name]  (FHR/THC repeat, optional)
-      [Benefits text]  (for FHR/THC)
-      [Amenities]  (for standard hotels)
-      $XXX.XX  (per night price)
-      average room per night...
-      $X,XXX.XX  (total price)
-      Total price...
-      or
-      XXX,XXX  (points)
-      Membership Rewards® points
+    Accepts either a string (legacy text-only) or a dict with structured fields
+    from data-testid DOM extraction plus fallback text.
     """
     hotel = {}
+
+    # Handle both dict (new structured extraction) and string (legacy)
+    if isinstance(card_data, dict):
+        text = card_data.get("text", "")
+        # Use structured fields when available (more reliable than text parsing)
+        if card_data.get("s_name"):
+            hotel["name"] = card_data["s_name"]
+        if card_data.get("s_price_per_night"):
+            try:
+                hotel["price_per_night"] = float(
+                    card_data["s_price_per_night"].replace("$", "").replace(",", "")
+                )
+            except (ValueError, TypeError):
+                pass
+        if card_data.get("s_total_price"):
+            try:
+                hotel["total_price"] = float(
+                    card_data["s_total_price"].replace("$", "").replace(",", "")
+                )
+            except (ValueError, TypeError):
+                pass
+        if card_data.get("s_points"):
+            try:
+                pts_str = card_data["s_points"].replace(",", "").strip()
+                hotel["points"] = int(pts_str)
+            except (ValueError, TypeError):
+                pass
+        if card_data.get("s_earn") and "5x" in card_data["s_earn"].lower():
+            hotel["earn_rate"] = "5x"
+    else:
+        text = card_data
+
     lines = [l.strip() for l in text.split("\n") if l.strip()]
-    if not lines:
+    if not lines and not hotel:
         return hotel
 
     text_lower = text.lower()
@@ -1820,6 +1857,10 @@ def _parse_offer_card_text(text):
     # Earn rate
     if "5x points" in text_lower or "5 times points" in text_lower:
         hotel["earn_rate"] = "5x"
+
+    # Calculate CPP if we have both cash and points
+    if hotel.get("points") and hotel.get("total_price") and hotel["points"] > 0:
+        hotel["cpp"] = round(hotel["total_price"] / hotel["points"] * 100, 2)
 
     return hotel
 

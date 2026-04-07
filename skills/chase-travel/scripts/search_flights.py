@@ -3178,6 +3178,124 @@ def print_flight_table(flights, show_json=False):
 # ============================================================
 
 
+def parse_chase_hotels(raw_data):
+    """Parse raw Chase hotel API JSON into clean structured output.
+
+    Input: raw API response with 'h' array of hotel objects.
+    Output: list of parsed hotel dicts with human-readable fields.
+    """
+    if not raw_data or "h" not in raw_data:
+        return []
+
+    hotels = []
+    for h in raw_data["h"]:
+        hotel = {
+            "id": h.get("id", ""),
+            "name": h.get("n", ""),
+            "distance_miles": float(h.get("dst", 0)),
+            "refundable": h.get("rfd") == "Refundable",
+        }
+
+        # Content / metadata
+        cnt = h.get("cnt", {})
+        if cnt:
+            hotel["star_rating"] = cnt.get("rt")
+            adr = cnt.get("adr", {})
+            city = adr.get("ct", {}).get("n", "")
+            line1 = adr.get("l1", "")
+            country = adr.get("cc", "")
+            hotel["address"] = f"{line1}, {city}, {country}".strip(", ")
+            hotel["city"] = city
+            hotel["country"] = country
+
+            tar = cnt.get("tar", {})
+            if tar:
+                hotel["tripadvisor_rating"] = tar.get("rt")
+                hotel["tripadvisor_reviews"] = tar.get("cnt", 0)
+
+            geo = cnt.get("geo", {})
+            if geo:
+                hotel["latitude"] = geo.get("lat")
+                hotel["longitude"] = geo.get("lng")
+
+            amn = cnt.get("amn", [])
+            hotel["amenities"] = [a.get("n", "") for a in amn if a.get("n")]
+
+        # Pricing from rewards array
+        rwds = h.get("po", {}).get("rwd", [])
+        for rwd in rwds:
+            pcf = rwd.get("rdp", {}).get("rs", {}).get("pcf", {})
+            factor = pcf.get("f", 0)
+            base_factor = pcf.get("bf", 0)
+            rcm = rwd.get("rdp", {}).get("rcm", {})
+            total = rcm.get("t", {})
+            per_night = rcm.get("pn", {})
+            ofr = total.get("ofr", {})
+
+            if factor == 0 and base_factor == 0:
+                continue  # Skip zero/hybrid entry
+
+            # Cash price from fare data
+            fare = rwd.get("f", {})
+            if fare and not hotel.get("cash_total"):
+                hotel["cash_total"] = fare.get("ta", 0)
+                nights = max(
+                    1,
+                    round(
+                        fare.get("ta", 0)
+                        / max(
+                            1,
+                            per_night.get("pbl", {}).get("c", 0)
+                            or per_night.get("pbl", {}).get("p", 0) * base_factor
+                            or 1,
+                        )
+                    ),
+                )
+                if nights > 0 and fare.get("ta", 0) > 0:
+                    hotel["cash_per_night"] = round(fare["ta"] / nights, 2)
+                    hotel["nights"] = nights
+
+            if factor > base_factor and ofr.get("d") == "Points offer applied":
+                # Boost pricing
+                hotel["boost_points_total"] = int(total.get("pbl", {}).get("p", 0))
+                hotel["boost_points_per_night"] = int(
+                    per_night.get("pbl", {}).get("p", 0)
+                )
+                hotel["boost_factor"] = factor
+                hotel["has_boost"] = True
+                if hotel.get("cash_total") and hotel["boost_points_total"] > 0:
+                    hotel["boost_cpp"] = round(
+                        hotel["cash_total"] / hotel["boost_points_total"] * 100, 2
+                    )
+            elif factor == base_factor and factor > 0:
+                # Standard pricing
+                hotel["points_total"] = int(total.get("pbl", {}).get("p", 0))
+                hotel["points_per_night"] = int(per_night.get("pbl", {}).get("p", 0))
+                if hotel.get("cash_total") and hotel["points_total"] > 0:
+                    hotel["cpp"] = round(
+                        hotel["cash_total"] / hotel["points_total"] * 100, 2
+                    )
+
+        # Edit detection (Signature Amenities in prm array)
+        prm = h.get("prm", [])
+        for p in prm:
+            if p.get("c") == "Signature Amenities":
+                hotel["is_edit"] = True
+                try:
+                    benefits_json = json.loads(p.get("d", "{}"))
+                    hotel["edit_benefits"] = [
+                        b.get("short", b.get("complete", ""))
+                        for b in benefits_json.get("benefits", [])
+                        if b.get("short") or b.get("complete")
+                    ]
+                except (json.JSONDecodeError, TypeError):
+                    hotel["edit_benefits"] = []
+
+        hotels.append(hotel)
+
+    return hotels
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chase Travel portal search")
     parser.add_argument("--origin", help="Origin airport code (e.g., SFO)")
@@ -3372,7 +3490,7 @@ def main():
 
         # Search
         if args.hotel:
-            results = search_hotels_api(
+            raw_results = search_hotels_api(
                 page,
                 args.dest,
                 args.checkin,
@@ -3380,15 +3498,16 @@ def main():
                 args.guests,
                 max_hotels=args.max_hotels,
             )
+            hotels = parse_chase_hotels(raw_results) if raw_results else []
             if args.json_output:
                 print(
-                    json.dumps(results, indent=2)
-                    if results
+                    json.dumps({"hotels": hotels}, indent=2)
+                    if hotels
                     else '{"error": "no results"}'
                 )
             else:
-                if results:
-                    print(json.dumps(results, indent=2))
+                if hotels:
+                    print(json.dumps({"hotels": hotels}, indent=2))
                 else:
                     print(
                         "No hotel results. Try --record mode to discover the hotel API endpoint."
