@@ -21,9 +21,6 @@ from pathlib import Path
 
 # Reuse login logic from main script
 from search_flights import (
-    _select_sapphire_card,
-    _extract_ai_param,
-    _get_portal_url,
     get_cookie_path,
     get_profile_dir,
     inject_cookies,
@@ -156,17 +153,17 @@ def main():
         # Handle account selector
         if "account-selector" in page.url.lower():
             time.sleep(3)
-            card_link = _select_sapphire_card(page)
+            card_link = page.query_selector(
+                'a[aria-label*="CREDIT CARD"], a.list-item__navigational'
+            )
             if card_link:
                 card_link.click()
                 time.sleep(8)
-                _extract_ai_param(page.url)
 
         # Navigate to flights
-        page.goto(
-            _get_portal_url("/travel/flights"),
-            timeout=30000,
-        )
+        from search_flights import FLIGHTS_URL
+
+        page.goto(FLIGHTS_URL, timeout=30000)
         time.sleep(8)
 
         # Kill modal aggressively
@@ -190,7 +187,10 @@ def main():
         print("\n" + "=" * 60, file=sys.stderr)
         print("READY! Do the flight search in the browser window.", file=sys.stderr)
         print("", file=sys.stderr)
-        print("Do your search in the browser window.", file=sys.stderr)
+        print("Search for:", file=sys.stderr)
+        print("  SFO -> CDG", file=sys.stderr)
+        print("  Aug 11 -> Sep 2", file=sys.stderr)
+        print("  Business class, Round-trip", file=sys.stderr)
         print("", file=sys.stderr)
         print("I'm capturing all network traffic.", file=sys.stderr)
         print("When results load, press ENTER here to save.", file=sys.stderr)

@@ -10,8 +10,9 @@ Usage:
     python3 check_balance.py --username USER --password PASS --code 123456 --json
 
 Environment variables (alternative to flags):
-    AA_USERNAME - AAdvantage number or login
-    AA_PASSWORD - Account password
+    AA_USERNAME     - AAdvantage number or login
+    AA_PASSWORD     - Account password
+    AA_2FA_COMMAND  - Optional: command to get email 2FA code (blocks, prints to stdout)
 """
 
 import argparse
@@ -50,7 +51,26 @@ def parse_args():
 
 
 def wait_for_code(code_file, timeout=120):
-    """Wait for a 2FA code to appear in the code file."""
+    """Wait for a 2FA code via command hook or file polling."""
+    import subprocess
+
+    # Command hook: run a custom command that blocks until it has the code
+    hook_cmd = os.environ.get("AA_2FA_COMMAND", "").strip()
+    if hook_cmd:
+        log("Running 2FA command hook...")
+        try:
+            result = subprocess.run(
+                hook_cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            )
+            code = result.stdout.strip()
+            if code and len(code) == 6 and code.isdigit():
+                log(f"Got 2FA code from hook: {code[:2]}****")
+                return code
+            log(f"Hook returned invalid code: {code[:10] if code else '(empty)'}")
+        except Exception as e:
+            log(f"2FA hook failed: {e}")
+
+    # File polling fallback
     if os.path.exists(code_file):
         os.remove(code_file)
 

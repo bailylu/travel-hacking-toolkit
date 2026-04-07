@@ -1979,8 +1979,7 @@ def main():
     parser.add_argument(
         "--cabin",
         default="Economy",
-        choices=["Economy", "Premium Economy", "Business", "First"],
-        help="Cabin class",
+        help="Cabin class: economy, premium economy, business, first",
     )
     parser.add_argument(
         "--passengers", type=int, default=1, help="Number of passengers"
@@ -2010,6 +2009,23 @@ def main():
         help="Parse a previously saved HTML file locally (no browser needed)",
     )
     args = parser.parse_args()
+
+    # Normalize cabin class (accept any case)
+    cabin_map = {
+        "economy": "Economy",
+        "premium economy": "Premium Economy",
+        "premium_economy": "Premium Economy",
+        "premiumeconomy": "Premium Economy",
+        "business": "Business",
+        "first": "First",
+    }
+    if args.cabin:
+        normalized = cabin_map.get(args.cabin.lower().strip())
+        if not normalized:
+            parser.error(
+                f"Unknown cabin class: {args.cabin}. Use: economy, premium economy, business, first"
+            )
+        args.cabin = normalized
 
     # Offline HTML parsing mode (no browser needed)
     if args.parse_html:

@@ -17,6 +17,8 @@ pip install patchright && patchright install chromium
 
 Or use Docker (no local install needed):
 ```bash
+docker pull ghcr.io/borski/aa-miles-check:latest
+# or build locally:
 docker build -t aa-check skills/american-airlines/
 ```
 
@@ -64,6 +66,7 @@ python3 scripts/check_balance.py --profile user1 --json
 
 ### Code input methods
 
+- **Command hook:** Set `AA_2FA_COMMAND` to a command that blocks until it has the code, then prints it to stdout. The script runs this first before falling back to file polling.
 - **File (default):** Script polls `/tmp/aa-2fa-code.txt` every 2 seconds. Write the 6-digit code there.
 - **Direct flag:** `--code 123456` if you already have the code before running.
 - **Custom file path:** `--code-file /path/to/code.txt`
@@ -113,6 +116,6 @@ python3 scripts/check_balance.py --profile user1 --json
 
 ## Limitations
 
-- **2FA on first use per profile.** No way around it. AA sends an email code.
+- **2FA on first use per profile.** No way around it. AA sends an email code. Set `AA_2FA_COMMAND` to automate code retrieval.
 - **Session expiry.** Persistent profiles last hours, not days. Long gaps between runs may require 2FA again.
 - **Headed mode required.** Opens a Chrome window locally. Use Docker for no popup.

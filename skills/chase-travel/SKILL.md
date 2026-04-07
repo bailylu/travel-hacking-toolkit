@@ -18,6 +18,8 @@ pip install patchright && patchright install chromium
 
 Or use Docker (no local install needed):
 ```bash
+docker pull ghcr.io/borski/chase-travel:latest
+# or build locally:
 docker build -t chase-travel skills/chase-travel/
 ```
 
@@ -56,7 +58,7 @@ docker run --rm \
     -v ~/.chase-travel-profiles:/profiles \
     -v /tmp:/tmp/host \
     -e CHASE_USERNAME -e CHASE_PASSWORD \
-    chase-travel script /scripts/search_flights.py \
+    ghcr.io/borski/chase-travel script /scripts/search_flights.py \
     --origin SFO --dest CDG --depart 2026-08-11 --cabin business --json
 ```
 
@@ -71,7 +73,7 @@ docker run --rm \
     -v ~/.chase-travel-profiles:/profiles \
     -v /tmp:/tmp/host \
     -e CHASE_USERNAME -e CHASE_PASSWORD \
-    chase-travel script /scripts/search_flights.py \
+    ghcr.io/borski/chase-travel script /scripts/search_flights.py \
     --hotel --dest "Oslo" --checkin 2026-08-13 --checkout 2026-08-15 --json
 ```
 
@@ -108,11 +110,12 @@ After first successful login with device trust, 2FA is skipped on repeat runs.
 
 ### Flight Search Architecture
 
-1. **Auth:** Patchright handles login, 2FA, cookie persistence, and card selection
-2. **Search API:** `POST` to Chase's internal CTE API creates a search session (returns `sessionId`)
-3. **Results:** Browser navigates to `travelsecure.chase.com/results/flights/outbound?ssid={sessionId}`. Script intercepts API responses via `page.on('response')` to capture `legwiseResults` JSON
-4. **Pagination:** Shadow DOM "Show more" button (`<orxe-button>`) clicked via JS to load all flights (10 at a time)
-5. **Points Boost:** Shadow DOM toggle (`<orxe-toggle class="points-offer">`) activated. Boost card carousel parsed for discounted point prices
+1. **Auth:** Patchright handles login, 2FA, cookie persistence, and card selection. Account identifier auto-extracted from portal URL.
+2. **Session:** `POST` to `v1/session/create` establishes the CXL travel session. Identifiers auto-extracted from cookies.
+3. **Search API:** `POST` to Chase's internal CTE API creates a flight search session (returns `sessionId`)
+4. **Results:** Browser navigates to `travelsecure.chase.com/results/flights/outbound?ssid={sessionId}&cnxtoken={redirectionToken}`. Script intercepts API responses via `page.on('response')` to capture `legwiseResults` JSON
+5. **Pagination:** Shadow DOM "Show more" button (`<orxe-button>`) clicked via JS to load all flights (10 at a time)
+6. **Points Boost:** Shadow DOM toggle (`<orxe-toggle class="points-offer">`) activated. Boost card carousel parsed for discounted point prices
 
 ### Hotel Search Architecture
 

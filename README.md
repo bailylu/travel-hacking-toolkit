@@ -45,18 +45,22 @@ docker pull ghcr.io/borski/aa-miles-check:latest
 docker run --rm -e AA_USERNAME=your_number -e AA_PASSWORD=your_pass ghcr.io/borski/aa-miles-check --json
 ```
 
-For the Chase and Amex Travel portal skills (optional), build Docker images locally:
+For the Chase and Amex Travel portal skills (optional), pull pre-built Docker images:
 
 ```bash
 # Chase Travel: UR portal pricing, Points Boost, Edit hotels
-docker build -t chase-travel skills/chase-travel/
-docker run --rm -v ~/.chase-travel-profiles:/profiles -e CHASE_USERNAME -e CHASE_PASSWORD \
-    chase-travel script /scripts/search_flights.py --origin SFO --dest CDG --depart 2026-08-11 --cabin business --json
+docker pull ghcr.io/borski/chase-travel:latest
+docker run --rm -v ~/.chase-travel-profiles:/profiles -v /tmp:/tmp/host \
+    -e CHASE_USERNAME -e CHASE_PASSWORD \
+    ghcr.io/borski/chase-travel script /scripts/search_flights.py \
+    --origin SFO --dest CDG --depart 2026-08-11 --cabin business --json
 
 # Amex Travel: MR portal pricing, IAP discounts, FHR/THC hotels
-docker build -t amex-travel skills/amex-travel/
-docker run --rm -v ~/.amex-travel-profiles:/profiles -e AMEX_USERNAME -e AMEX_PASSWORD \
-    amex-travel script /app/search_flights.py --origin SFO --dest NRT --depart 2026-08-15 --cabin business --json
+docker pull ghcr.io/borski/amex-travel:latest
+docker run --rm -v ~/.amex-travel-profiles:/profiles \
+    -e AMEX_USERNAME -e AMEX_PASSWORD \
+    ghcr.io/borski/amex-travel script /app/search_flights.py \
+    --origin SFO --dest NRT --depart 2026-08-15 --cabin business --json
 ```
 
 Then launch your tool:

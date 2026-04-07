@@ -18,6 +18,8 @@ pip install patchright && patchright install chromium
 
 Or use Docker (no local install needed):
 ```bash
+docker pull ghcr.io/borski/amex-travel:latest
+# or build locally:
 docker build -t amex-travel skills/amex-travel/
 ```
 

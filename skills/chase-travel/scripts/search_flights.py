@@ -27,14 +27,14 @@ Usage:
         -v ~/.chase-travel-profiles:/profiles \
         -v /tmp:/tmp/host \
         -e CHASE_USERNAME -e CHASE_PASSWORD \
-        chase-travel script /scripts/search_flights.py \
+        ghcr.io/borski/patchright-docker script /scripts/search_flights.py \
         --origin SFO --dest CDG --depart 2026-08-11
 
 Environment:
-    CHASE_USERNAME  - Chase online username
-    CHASE_PASSWORD  - Chase online password
-    CHASE_2FA_COMMAND - Optional: command to run to get SMS 2FA code (blocks until code ready, returns on stdout)
-    CHASE_PROFILE    - Profile directory (default: /profiles or ~/.chase-travel-profiles/default)
+    CHASE_USERNAME    - Chase online username
+    CHASE_PASSWORD    - Chase online password
+    CHASE_2FA_COMMAND - Optional: command to get SMS 2FA code (blocks, prints to stdout)
+    CHASE_PROFILE     - Profile directory (default: /profiles or ~/.chase-travel-profiles/default)
 """
 
 import argparse
@@ -42,7 +42,6 @@ import base64
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -51,65 +50,63 @@ from pathlib import Path
 SECURE_BASE = "https://secure.chase.com/svc/wr/profile/l4/gateway/chase-travel/loyalty/bank-rewards/cte-app/v1"
 TRAVEL_BASE = "https://travelsecure.chase.com/api/air/v1.0"
 
-# Portal base URL. The AI= parameter is extracted dynamically after card selection.
-PORTAL_BASE = "https://ultimaterewardspoints.chase.com"
-
-# Module-level storage for the AI parameter (set after card selection)
-_ai_param = None
+# Account identifier (auto-extracted from portal URL during card selection)
+_CARD_AI = ""
 
 
-def _get_portal_url(path="/travel"):
-    """Build portal URL with AI parameter if available."""
-    base = f"{PORTAL_BASE}{path}"
-    if _ai_param:
-        return f"{base}?AI={_ai_param}"
-    return base
+def _portal_url(path="travel"):
+    """Build a portal URL with the current AI parameter."""
+    base = f"https://ultimaterewardspoints.chase.com/{path}"
+    return f"{base}?AI={_CARD_AI}" if _CARD_AI else base
 
 
-def _extract_ai_param(url):
-    """Extract AI parameter from a Chase portal URL."""
-    global _ai_param
-    m = re.search(r"[?&]AI=(\d+)", url)
-    if m:
-        _ai_param = m.group(1)
-        return _ai_param
-    return None
+def _find_sapphire_link(page):
+    """Find the Sapphire Reserve or Preferred card link on the account selector page.
 
-
-def _select_sapphire_card(page):
-    """Select the Sapphire Reserve or Sapphire Preferred card from account selector.
-
-    Prefers Reserve (1.5x travel, Edit hotels) over Preferred (1.25x).
-    Falls back to any credit card link if neither Sapphire card found.
+    Looks for <a> elements whose accessible text or aria-label contains
+    'sapphire reserve' or 'sapphire preferred'. Falls back to any credit card link.
     """
-    # Try Sapphire Reserve first (1.5x multiplier, Edit hotels, best travel card)
-    card = page.query_selector('a[aria-label*="Sapphire Reserve" i]')
-    if card:
-        print("  Found Sapphire Reserve", file=sys.stderr)
-        return card
+    # Try by accessible text in parent li
+    for keyword in ["sapphire reserve", "sapphire preferred"]:
+        link = page.evaluate(f"""() => {{
+            const items = document.querySelectorAll('li.list-item--navigational, mds-list-item');
+            for (const item of items) {{
+                const text = (item.querySelector('.accessible-text')?.textContent
+                    || item.getAttribute('image-alt-text')
+                    || item.getAttribute('navigational-accessible-description')
+                    || item.innerText || '').toLowerCase();
+                if (text.includes('{keyword}')) {{
+                    const a = item.querySelector('a.list-item__navigational');
+                    const href = a?.href || item.getAttribute('href') || '';
+                    if (a) {{ a.click(); return 'clicked-a|' + href; }}
+                    if (item.getAttribute('href')) {{ item.click(); return 'clicked-item|' + href; }}
+                }}
+            }}
+            return null;
+        }}""")
+        if link:
+            # Extract AI from the href if present
+            parts = link.split("|", 1)
+            href = parts[1] if len(parts) > 1 else ""
+            ai_match = re.search(r"[?&]AI=(\d+)", href)
+            if ai_match:
+                global _CARD_AI
+                _CARD_AI = ai_match.group(1)
+            print(f"  Found {keyword} ({parts[0]})", file=sys.stderr)
+            return True  # Already clicked
 
-    # Fall back to Sapphire Preferred (1.25x multiplier)
-    card = page.query_selector('a[aria-label*="Sapphire Preferred" i]')
-    if card:
-        print("  Found Sapphire Preferred", file=sys.stderr)
-        return card
-
-    # Last resort: any credit card link
+    # Fallback: any card link
     card = page.query_selector(
         'a[aria-label*="CREDIT CARD"], a.list-item__navigational'
     )
-    if card:
-        print("  No Sapphire card found, using first available card", file=sys.stderr)
-        return card
+    return card
 
-    print("  WARNING: No card found in account selector", file=sys.stderr)
-    return None
+
+import subprocess
 
 
 # ============================================================
-# Auth helpers (proven working from prior version)
-# ============================================================
-# Auth helpers (proven working from prior version)
+# Auth helpers
 # ============================================================
 
 
@@ -172,15 +169,11 @@ def is_logged_in(page):
 
 
 def wait_for_2fa_code(timeout=180):
-    """Wait for 2FA SMS code via command hook or file polling.
-
-    If CHASE_2FA_COMMAND is set, runs it and uses stdout as the code.
-    Otherwise falls back to polling /tmp/chase-2fa-code.txt.
-    """
+    """Wait for 2FA SMS code via env var or file polling."""
     # Command hook: run a custom command that blocks until it has the code
     hook_cmd = os.environ.get("CHASE_2FA_COMMAND", "").strip()
     if hook_cmd:
-        print(f"Running 2FA command hook...", file=sys.stderr)
+        print("Running 2FA command hook...", file=sys.stderr)
         try:
             result = subprocess.run(
                 hook_cmd, shell=True, capture_output=True, text=True, timeout=timeout
@@ -189,13 +182,8 @@ def wait_for_2fa_code(timeout=180):
             if code:
                 print(f"Got 2FA code from hook: {code[:2]}****", file=sys.stderr)
                 return code
-            print(
-                "2FA hook returned empty, falling back to file polling", file=sys.stderr
-            )
         except Exception as e:
-            print(
-                f"2FA hook failed: {e}, falling back to file polling", file=sys.stderr
-            )
+            print(f"2FA hook failed: {e}", file=sys.stderr)
 
     host_path = "/tmp/host/chase-2fa-code.txt"
     local_path = "/tmp/chase-2fa-code.txt"
@@ -326,7 +314,7 @@ def login(page, context, username, password, cookie_path):
 
     # Try cookie injection first
     if inject_cookies(context, cookie_path):
-        page.goto(_get_portal_url("/travel"), timeout=30000)
+        page.goto(_portal_url(), timeout=30000)
         time.sleep(5)
         for _ in range(5):
             if any(x in page.url.lower() for x in ["logoff", "logon", "/auth/"]):
@@ -381,24 +369,34 @@ def login(page, context, username, password, cookie_path):
 # ============================================================
 
 
+def _extract_ai_from_url(url):
+    """Extract the AI (account identifier) parameter from a Chase URL."""
+    m = re.search(r"[?&]AI=(\d+)", url)
+    return m.group(1) if m else ""
+
+
 def navigate_to_portal(page):
-    """Navigate to travel portal and establish session. Returns True on success."""
+    """Navigate to travel portal and establish session.
+
+    Returns the AI (account identifier) string on success, or None on failure.
+    The AI is auto-extracted from the URL after card selection.
+    """
+    global _CARD_AI
+
     # Handle account selector if present
     if "account-selector" in page.url.lower():
-        print("Account selector detected, selecting Sapphire card...", file=sys.stderr)
+        print("Account selector detected, clicking CSR card...", file=sys.stderr)
         time.sleep(3)
-        card_link = _select_sapphire_card(page)
-        if card_link:
-            card_link.click()
-            time.sleep(8)
-            _extract_ai_param(page.url)
+        result = _find_sapphire_link(page)
+        if result and result is not True:
+            result.click()
+        time.sleep(8)
 
     print(f"Current URL: {page.url}", file=sys.stderr)
 
-    # The UR travel portal lives at ultimaterewardspoints.chase.com.
-    # To get there, we go through the account selector which redirects us.
-    # If we just navigate to the flights URL directly, Chase may embed it
-    # in the dashboard instead of the standalone portal.
+    # Extract AI from current URL if already present
+    ai = _extract_ai_from_url(page.url)
+
     print("Navigating to UR account selector...", file=sys.stderr)
     page.goto("https://ultimaterewardspoints.chase.com/account-selector", timeout=30000)
     time.sleep(8)
@@ -406,16 +404,34 @@ def navigate_to_portal(page):
     # Handle account selector
     if "account-selector" in page.url.lower():
         print("Selecting Sapphire card...", file=sys.stderr)
-        card_link = _select_sapphire_card(page)
-        if card_link:
-            card_link.click()
-            time.sleep(8)
-            _extract_ai_param(page.url)
-
-    # Now navigate to flights
-    if "ultimaterewardspoints.chase.com/travel" not in page.url:
-        page.goto(_get_portal_url("/travel/flights"), timeout=30000)
+        result = _find_sapphire_link(page)
+        if result and result is not True:
+            result.click()
         time.sleep(8)
+        # After clicking, wait for redirect and try to extract AI
+        for _ in range(5):
+            ai = _extract_ai_from_url(page.url)
+            if ai or "account-selector" not in page.url.lower():
+                break
+            time.sleep(2)
+
+    # Extract AI from URL after card selection
+    if not ai:
+        ai = _extract_ai_from_url(page.url)
+
+    # Update global _CARD_AI so session/create and other calls can use it
+    if ai:
+        _CARD_AI = ai
+        print(f"Account identifier (AI): {ai}", file=sys.stderr)
+    elif _CARD_AI:
+        ai = _CARD_AI
+
+    # Navigate to the travel portal on secure.chase.com (embedded).
+    # API calls must be same-origin with secure.chase.com, so the standalone
+    # ultimaterewardspoints.chase.com portal won't work for fetch() calls.
+    dashboard_travel = "https://secure.chase.com/web/auth/dashboard#/dashboard/travel"
+    page.goto(dashboard_travel, timeout=30000)
+    time.sleep(8)
 
     # Dismiss video modal
     page.evaluate("""
@@ -444,27 +460,35 @@ def navigate_to_portal(page):
     on_embedded = "dashboard" in url and "travel" in url
 
     if not on_standalone and not on_embedded:
-        # Try navigating again
-        print(f"Not on portal yet ({url}), retrying...", file=sys.stderr)
-        page.goto(_get_portal_url("/travel/flights"), timeout=30000)
+        # Try navigating to embedded portal on secure.chase.com
+        print(f"Not on portal yet ({url}), retrying via dashboard...", file=sys.stderr)
+        page.goto(
+            "https://secure.chase.com/web/auth/dashboard#/dashboard/travel",
+            timeout=30000,
+        )
         time.sleep(10)
         url = page.url
         on_standalone = "ultimaterewardspoints.chase.com" in url
         on_embedded = "dashboard" in url and "travel" in url
 
+    # Last chance to extract AI from wherever we ended up
+    if not ai:
+        ai = _extract_ai_from_url(page.url)
+        if ai:
+            _CARD_AI = ai
+
     if "logon" in url.lower() or "logoff" in url.lower():
         print(f"Redirected to login: {url}", file=sys.stderr)
-        return False
+        return None
 
     if not on_standalone and not on_embedded:
         print(f"WARNING: Not on travel portal. URL: {url}", file=sys.stderr)
-        return False
+        return None
 
     # Verify we have the cxlPayload cookie (needed for API calls)
     cxl = extract_cxl_payload(page)
     if cxl:
         print(f"Portal session established (cxlPayload found)", file=sys.stderr)
-        print(f"  Session: {cxl.get('cnx-sessionid', '?')[:20]}...", file=sys.stderr)
     else:
         print(
             "WARNING: No cxlPayload cookie found. API calls may fail.", file=sys.stderr
@@ -472,11 +496,16 @@ def navigate_to_portal(page):
 
     portal_type = "standalone" if on_standalone else "embedded"
     print(f"On travel portal ({portal_type}): {url[:80]}", file=sys.stderr)
-    return True
+    return ai or True
 
 
 def extract_cxl_payload(page):
-    """Extract the cxlPayload from cookies for session info."""
+    """Extract the cxlPayload from cookies for session info.
+
+    The cookie value can be either:
+    - Plain base64-encoded JSON (original format from Chase)
+    - A JWT (header.payload.signature) where the payload is base64url-encoded JSON
+    """
     cookies = page.context.cookies()
     for c in cookies:
         if c.get("name") == "chaseTravel-cxlPayload":
@@ -484,7 +513,20 @@ def extract_cxl_payload(page):
                 import urllib.parse
 
                 value = urllib.parse.unquote(c["value"])
-                # Fix base64 padding
+
+                # Check if it's a JWT (three dot-separated parts)
+                if value.count(".") == 2:
+                    # JWT: decode the payload (second part)
+                    payload_b64 = value.split(".")[1]
+                    # base64url to base64
+                    payload_b64 = payload_b64.replace("-", "+").replace("_", "/")
+                    padding = 4 - len(payload_b64) % 4
+                    if padding != 4:
+                        payload_b64 += "=" * padding
+                    decoded = base64.b64decode(payload_b64).decode("utf-8")
+                    return json.loads(decoded)
+
+                # Plain base64-encoded JSON
                 padding = 4 - len(value) % 4
                 if padding != 4:
                     value += "=" * padding
@@ -494,6 +536,124 @@ def extract_cxl_payload(page):
                 print(f"WARNING: Could not decode cxlPayload: {e}", file=sys.stderr)
                 print(f"  Raw value: {c['value'][:100]}...", file=sys.stderr)
     return None
+
+
+def extract_session_identifiers(page):
+    """Extract identifiers needed for session/create from cookies.
+
+    Returns dict with enterprisePartyIdentifier, onlineProfileIdentifier,
+    productCode, or None if not found.
+
+    Sources (in priority order):
+    1. cxlPayload cookie (cnx-eci, cnx-pi, cnx-rpc)
+    2. PC_1_0 cookie (ECI, pfid, RPC)
+    """
+    # Source 1: cxlPayload (already decoded by extract_cxl_payload)
+    cxl = extract_cxl_payload(page)
+    if cxl:
+        eci = cxl.get("cnx-eci", "")
+        opi = cxl.get("cnx-pi", "")
+        rpc = cxl.get("cnx-rpc", "")
+        if eci and opi and rpc:
+            print(
+                f"Session identifiers from cxlPayload: ECI={eci}, OPI={opi}, RPC={rpc}",
+                file=sys.stderr,
+            )
+            return {
+                "enterprisePartyIdentifier": eci,
+                "onlineProfileIdentifier": int(opi) if opi.isdigit() else opi,
+                "productCode": rpc,
+            }
+
+    # Source 2: PC_1_0 cookie (pipe-delimited key=value pairs)
+    cookies = page.context.cookies()
+    for c in cookies:
+        if c.get("name") == "PC_1_0":
+            try:
+                import urllib.parse
+
+                value = urllib.parse.unquote(c["value"])
+                parts = dict(p.split("=", 1) for p in value.split("|") if "=" in p)
+                eci = parts.get("ECI", "")
+                opi = parts.get("pfid", "")
+                rpc = parts.get("RPC", "").split(",")[0]  # First product code
+                if eci and opi and rpc:
+                    print(
+                        f"Session identifiers from PC_1_0: ECI={eci}, OPI={opi}, RPC={rpc}",
+                        file=sys.stderr,
+                    )
+                    return {
+                        "enterprisePartyIdentifier": eci,
+                        "onlineProfileIdentifier": int(opi) if opi.isdigit() else opi,
+                        "productCode": rpc,
+                    }
+            except Exception as e:
+                print(f"WARNING: Could not parse PC_1_0 cookie: {e}", file=sys.stderr)
+
+    print(
+        "WARNING: Could not extract session identifiers from cookies",
+        file=sys.stderr,
+    )
+    return None
+
+
+def create_travel_session(page):
+    """Create a CXL travel session via the session/create API.
+
+    This call is required before navigating to travelsecure.chase.com.
+    Without it, the results page returns HTTP 400.
+
+    Returns the session response dict, or None on failure.
+    """
+    ids = extract_session_identifiers(page)
+    if not ids:
+        print(
+            "ERROR: Cannot create travel session without identifiers", file=sys.stderr
+        )
+        return None
+
+    session_body = {
+        "enterprisePartyIdentifier": ids["enterprisePartyIdentifier"],
+        "digitalAccountIdentifier": int(_CARD_AI) if _CARD_AI else 0,
+        "channel": "DESKTOP",
+        "accountType": "CREDIT",
+        "productCode": ids["productCode"],
+        "onlineProfileIdentifier": ids["onlineProfileIdentifier"],
+        "v2ReceptionDeskIndicator": True,
+    }
+
+    session_url = f"{SECURE_BASE}/session/create"
+    print(f"Creating travel session...", file=sys.stderr)
+
+    result = api_fetch(page, session_url, "POST", session_body)
+    if result:
+        redir_token = result.get("redirectionToken", "")
+        api_token = result.get("apiToken", "")
+        print(f"Travel session created", file=sys.stderr)
+
+        # The apiToken is a JWT that becomes the new cxlPayload cookie.
+        # Set it so travelsecure.chase.com can read the updated session.
+        if api_token:
+            import urllib.parse
+
+            encoded_token = urllib.parse.quote(api_token, safe="")
+            page.context.add_cookies(
+                [
+                    {
+                        "name": "chaseTravel-cxlPayload",
+                        "value": encoded_token,
+                        "domain": ".chase.com",
+                        "path": "/",
+                    }
+                ]
+            )
+    else:
+        print(
+            "WARNING: session/create failed. Results page may return 400.",
+            file=sys.stderr,
+        )
+
+    return result
 
 
 def get_ur_balance(page):
@@ -713,11 +873,13 @@ def search_flights_api(
     """Search flights via the Chase Travel API.
 
     Strategy:
-    1. Create search session via secure.chase.com API (works, gets ssid)
-    2. Set up response interceptor BEFORE navigating to results page
-    3. Navigate to travelsecure.chase.com/results (React app loads data via API)
-    4. Capture the legwiseOfferResults/legwiseResults responses as they come through
-    5. Parse structured JSON data from the intercepted responses
+    1. Look up airports via autosuggest API
+    2. Create CXL travel session via session/create (required for travelsecure)
+    3. Submit flight search via secure.chase.com API (gets ssid)
+    4. Set up response interceptor BEFORE navigating to results page
+    5. Navigate to travelsecure.chase.com/results (Angular app loads data via API)
+    6. Capture the legwiseOfferResults/legwiseResults responses as they come through
+    7. Parse structured JSON data from the intercepted responses
 
     Returns (ssid, results_data) or (None, None) on error.
     """
@@ -777,6 +939,9 @@ def search_flights_api(
         "cabinType": cabin,
         "isMixAndMatch": True,
     }
+
+    # Step 2.5: Create travel session (required before navigating to results)
+    session_result = create_travel_session(page)
 
     # Step 3: Submit search
     search_url = f"{SECURE_BASE}/flight/search/{journey_type}"
@@ -849,16 +1014,70 @@ def search_flights_api(
 
     page.on("response", on_response)
 
-    # Step 5: Navigate to results page
-    cxl = extract_cxl_payload(page)
-    cnx_token = cxl.get("CSRF-Token", "") if cxl else ""
+    # Also log ALL responses from travelsecure for debugging
+    def on_any_response(response):
+        url = response.url
+        if "travelsecure" in url or "chase-travel" in url:
+            status = response.status
+            path = (
+                url.split("?")[0].split("chase.com")[-1]
+                if "chase.com" in url
+                else url[:80]
+            )
+            if status >= 400 or "api/" in url.lower():
+                print(f"  [{status}] {path}", file=sys.stderr)
 
-    results_url = f"https://travelsecure.chase.com/results/flights/outbound?ssid={ssid}"
+    page.on("response", on_any_response)
+
+    # Step 5: Navigate to results page
+    # cnxtoken comes from session/create's redirectionToken (NOT the CSRF-Token in cxlPayload)
+    cnx_token = ""
+    if session_result and isinstance(session_result, dict):
+        cnx_token = session_result.get("redirectionToken", "")
+    if not cnx_token:
+        # Fallback to CSRF-Token from cxlPayload (may not work)
+        cxl = extract_cxl_payload(page)
+        cnx_token = cxl.get("CSRF-Token", "") if cxl else ""
+        if cnx_token:
+            print(
+                "  WARNING: Using CSRF-Token as cnxtoken (session/create had no redirectionToken)",
+                file=sys.stderr,
+            )
+
+    results_url = f"https://travelsecure.chase.com/results/flights/outbound?ssid={ssid}&cnx-onprem=false"
     if cnx_token:
         results_url += f"&cnxtoken={cnx_token}"
 
     print(f"Navigating to results page...", file=sys.stderr)
+
+    # Ensure cxlPayload cookie is on .chase.com domain for travelsecure
+    all_cookies = page.context.cookies()
+    cxl_cookie = None
+    for c in all_cookies:
+        if "cxlPayload" in c.get("name", ""):
+            cxl_cookie = c
+            break
+
+    # If cxlPayload is on secure.chase.com, copy it to .chase.com for travelsecure
+    if (
+        cxl_cookie
+        and "secure" in cxl_cookie.get("domain", "")
+        and "travelsecure" not in cxl_cookie.get("domain", "")
+    ):
+        print("  Copying cxlPayload to .chase.com domain...", file=sys.stderr)
+        page.context.add_cookies(
+            [
+                {
+                    "name": cxl_cookie["name"],
+                    "value": cxl_cookie["value"],
+                    "domain": ".chase.com",
+                    "path": "/",
+                }
+            ]
+        )
+
     page.goto(results_url, timeout=60000)
+    print(f"  Landed on: {page.url[:100]}", file=sys.stderr)
 
     # Step 6: Wait for results to load.
     # Chase returns TWO key responses:
@@ -920,8 +1139,38 @@ def search_flights_api(
             "API interception returned no results. Trying DOM scrape...",
             file=sys.stderr,
         )
-        time.sleep(5)
-        results = scrape_results_from_page(page)
+        # Wait for Angular custom elements to render (they load AFTER initial page)
+        # page.inner_text("body") always returns "Sorry, something went wrong" (140 chars)
+        # but flight cards render on top via shadow DOM. Poll for them.
+        # Cards are INSIDE shadow DOM so we must traverse shadow roots to find them.
+        print("  Waiting for flight cards to render...", file=sys.stderr)
+        FIND_CARDS_JS = """() => {
+            function findAll(root, selector) {
+                let results = [...root.querySelectorAll(selector)];
+                root.querySelectorAll('*').forEach(el => {
+                    if (el.shadowRoot) {
+                        results = results.concat(findAll(el.shadowRoot, selector));
+                    }
+                });
+                return results;
+            }
+            return findAll(document, 'orxe-flight-itinerary-card').length;
+        }"""
+        for attempt in range(30):  # up to 60 seconds
+            card_count = page.evaluate(FIND_CARDS_JS)
+            if card_count > 0:
+                print(
+                    f"  Found {card_count} flight cards after {(attempt + 1) * 2}s",
+                    file=sys.stderr,
+                )
+                time.sleep(3)  # let remaining cards finish rendering
+                break
+            time.sleep(2)
+        else:
+            print("  No flight cards appeared after 60s", file=sys.stderr)
+
+        # Try DOM element extraction (flight data is in custom elements, not inner_text)
+        results = scrape_results_from_dom(page)
         if results:
             itins = results.get("itineraries", results.get("results", []))
             print(
@@ -1924,6 +2173,9 @@ def search_hotels_api(
         },
     }
 
+    # Create travel session (required before navigating to results)
+    create_travel_session(page)
+
     result = api_fetch(page, f"{SECURE_BASE}/hotel/search", "POST", search_body)
 
     ssid = None
@@ -1966,10 +2218,7 @@ def search_hotels_api(
         page.on("request", on_hotel_req)
         page.on("response", on_hotel_nav)
 
-        page.goto(
-            _get_portal_url("/travel"),
-            timeout=30000,
-        )
+        page.goto(_portal_url(), timeout=30000)
         page.wait_for_timeout(10000)
 
         page.remove_listener("request", on_hotel_req)
@@ -2020,7 +2269,7 @@ def search_hotels_api(
     import urllib.parse
 
     encoded_sid = urllib.parse.quote(ssid, safe="")
-    results_url = f"https://travelsecure.chase.com/results/hotels?h.s.sid={encoded_sid}"
+    results_url = f"https://travelsecure.chase.com/results/hotels?h.s.sid={encoded_sid}&cnx-onprem=false"
     print(f"Navigating to hotel results...", file=sys.stderr)
     page.goto(results_url, timeout=60000)
 
@@ -2200,6 +2449,203 @@ def search_hotels_api(
 # ============================================================
 
 
+def scrape_results_from_dom(page):
+    """Extract flight results from DOM elements (custom Angular components).
+
+    The travelsecure.chase.com results page uses custom elements with shadow DOM.
+    inner_text("body") can't reach the flight data, but querySelectorAll can find
+    the light DOM elements that contain airline, time, price, and points data.
+    """
+    results = page.evaluate("""() => {
+        // Traverse shadow DOM to find elements
+        function deepQueryAll(root, selector) {
+            let results = [...root.querySelectorAll(selector)];
+            root.querySelectorAll('*').forEach(el => {
+                if (el.shadowRoot) {
+                    results = results.concat(deepQueryAll(el.shadowRoot, selector));
+                }
+            });
+            return results;
+        }
+        function deepQuery(root, selector) {
+            let result = root.querySelector(selector);
+            if (result) return result;
+            const allEls = root.querySelectorAll('*');
+            for (const el of allEls) {
+                if (el.shadowRoot) {
+                    result = deepQuery(el.shadowRoot, selector);
+                    if (result) return result;
+                }
+            }
+            return null;
+        }
+
+        const flights = [];
+        const cards = deepQueryAll(document, 'orxe-flight-itinerary-card');
+        if (cards.length === 0) return null;
+
+        // Helper: query within a node, piercing shadow DOM
+        function dq(root, sel) {
+            let r = root.querySelector(sel);
+            if (r) return r;
+            for (const el of root.querySelectorAll('*')) {
+                if (el.shadowRoot) {
+                    r = dq(el.shadowRoot, sel);
+                    if (r) return r;
+                }
+            }
+            return null;
+        }
+        function dqAll(root, sel) {
+            let results = [...root.querySelectorAll(sel)];
+            for (const el of root.querySelectorAll('*')) {
+                if (el.shadowRoot) {
+                    results = results.concat(dqAll(el.shadowRoot, sel));
+                }
+            }
+            return results;
+        }
+
+        cards.forEach(card => {
+            const flight = {};
+
+            // Airline name
+            const airlineEl = dq(card, '[orxe-id="journeySummary--airlineName-span"]');
+            flight.airline = airlineEl ? airlineEl.textContent.trim() : '';
+
+            // Times (first two .time-suffix spans in journey summary)
+            const timeEls = dqAll(card, '.time-suffix');
+            const times = timeEls.map(t => t.textContent.trim().replace(/[‐\\-]\\s*$/, '').trim());
+            flight.depart_time = times[0] || '';
+            flight.arrive_time = times[1] || '';
+
+            // Duration
+            const durEl = dq(card, '.journey-duration');
+            flight.duration = durEl ? durEl.textContent.trim() : '';
+
+            // Stops
+            const stopEl = dq(card, '[orxe-id="journeySummary--stop-info"]');
+            flight.stops = stopEl ? stopEl.textContent.trim() : '';
+
+            // Route (departure and destination codes)
+            const depCode = dq(card, '[orxe-id="journeySummary--departureCode-span"]');
+            const arrCode = dq(card, '[orxe-id="journeySummary--destinationCode-span"]');
+            if (!depCode && !arrCode) {
+                const routeSpans = dqAll(card, '.journey-info span[aria-hidden="true"]');
+                const codes = routeSpans.map(s => s.textContent.trim()).filter(t => /^[A-Z]{3}/.test(t));
+                flight.origin = codes[0] ? codes[0].replace(/[^A-Z]/g, '') : '';
+                flight.destination = codes[1] ? codes[1].replace(/[^A-Z]/g, '') : '';
+            } else {
+                flight.origin = depCode ? depCode.textContent.trim().replace(/[^A-Z]/g, '') : '';
+                flight.destination = arrCode ? arrCode.textContent.trim().replace(/[^A-Z]/g, '') : '';
+            }
+
+            // Code share
+            const codeShare = dq(card, '[orxe-id="journeySummary--codeShareText-div"]');
+            flight.codeshare = codeShare ? codeShare.textContent.trim() : '';
+
+            // Points Boost indicator
+            flight.has_boost = !!dq(card, '.points-offer-text-container');
+
+            // Fare options (each carousel item is a fare class)
+            flight.fares = [];
+            const fareItems = dqAll(card, 'orxe-desktop-carousel-item[orxe-id="brand-fare-details"]');
+            fareItems.forEach(item => {
+                const fare = {};
+                const nameEl = dq(item, '.fare-name');
+                fare.name = nameEl ? nameEl.textContent.trim() : '';
+
+                const priceEl = dq(item, '[orxe-id="fareOptionTile--fare-span"]');
+                fare.cash = priceEl ? priceEl.textContent.trim() : '';
+
+                // Points: check both div and span variants
+                const ptDiv = dq(item, '[orxe-id="fareOptionTile--point-div"]');
+                const ptSpan = dq(item, '[orxe-id="fareOptionTile--point-span"]');
+                const ptEl = ptSpan || ptDiv;
+                fare.points = ptEl ? ptEl.textContent.trim().replace(/\\s*points?$/i, '').trim() : '';
+
+                // Boost: "was X pts" original price
+                const baseEl = dq(item, '[orxe-id="fareOptionTile--basePoint-span"]') || dq(item, '.brand-fare-base-points');
+                fare.was_points = baseEl ? baseEl.textContent.trim() : '';
+
+                fare.is_boost = !!(ptSpan && dq(item, '.points-offer-container'));
+
+                flight.fares.push(fare);
+            });
+
+            flights.push(flight);
+        });
+
+        // Result count (also in shadow DOM)
+        const countEl = deepQuery(document, '[orxe-id="resultHeaderContainer--flightResultCount"]');
+        const count = countEl ? countEl.textContent.trim() : '';
+
+        // Points Boost shelf
+        const boostShelf = [];
+        const shelfItems = deepQueryAll(document, 'app-shelf-card');
+        shelfItems.forEach(item => {
+            const boost = {};
+            const dateEl = dq(item, '.journey-date');
+            boost.date = dateEl ? dateEl.textContent.trim() : '';
+            const airEl = dq(item, '.journey-header');
+            boost.airline = airEl ? airEl.textContent.trim() : '';
+            const routeEl = dq(item, '.flight-info');
+            boost.route = routeEl ? routeEl.textContent.trim() : '';
+            const priceEl = dq(item, '.brand-fare-price');
+            boost.cash = priceEl ? priceEl.textContent.trim() : '';
+            const ptsEl = dq(item, '.brand-fare-points-offer');
+            boost.points = ptsEl ? ptsEl.textContent.trim() : '';
+            const wasEl = dq(item, '.brand-fare-base-points');
+            boost.was_points = wasEl ? wasEl.textContent.trim() : '';
+            const fareEl = dq(item, '.brand-name');
+            boost.fare = fareEl ? fareEl.textContent.trim() : '';
+            boostShelf.push(boost);
+        });
+
+        return {
+            count: count,
+            flights: flights,
+            boost_shelf: boostShelf
+        };
+    }""")
+
+    if not results or not results.get("flights"):
+        print("DOM element extraction found no flights", file=sys.stderr)
+        # Debug: check what elements exist (piercing shadow DOM)
+        debug = page.evaluate("""() => {
+            function countDeep(root, sel) {
+                let n = root.querySelectorAll(sel).length;
+                root.querySelectorAll('*').forEach(el => {
+                    if (el.shadowRoot) n += countDeep(el.shadowRoot, sel);
+                });
+                return n;
+            }
+            return {
+                cards: countDeep(document, 'orxe-flight-itinerary-card'),
+                summaries: countDeep(document, 'orxe-flight-journey-summary'),
+                fares: countDeep(document, '[orxe-id="fareOptionTile--fare-span"]'),
+                any_orxe: countDeep(document, '[orxe-id]'),
+                shadow_roots: document.querySelectorAll('*').length,
+                body_len: document.body.innerText.length,
+                body_preview: document.body.innerText.substring(0, 200)
+            };
+        }""")
+        print(f"  Debug: {debug}", file=sys.stderr)
+        return None
+
+    print(
+        f"  DOM extraction: {results['count']}, {len(results['flights'])} flights, {len(results.get('boost_shelf', []))} boost offers",
+        file=sys.stderr,
+    )
+
+    # Convert to the format expected by the rest of the code
+    return {
+        "itineraries": results["flights"],
+        "boost_shelf": results.get("boost_shelf", []),
+        "count": results["count"],
+    }
+
+
 def scrape_results_from_page(page):
     """Scrape flight results from the travelsecure page DOM.
 
@@ -2216,13 +2662,22 @@ def scrape_results_from_page(page):
             print("Page has no text content", file=sys.stderr)
             return None
 
-        # Check for results
-        has_results = "departure time" in text.lower() or (
-            "pts" in text.lower()
-            and ("stop" in text.lower() or "nonstop" in text.lower())
+        # Check for results - look for any flight indicator
+        text_lower = text.lower()
+        has_results = any(
+            [
+                "departure time" in text_lower,
+                "departure flights" in text_lower,
+                "showing" in text_lower and "results" in text_lower,
+                ("pts" in text_lower and "stop" in text_lower),
+                re.search(r"\d{1,2}:\d{2}\s*[ap]m", text_lower) and "pts" in text_lower,
+            ]
         )
         if not has_results:
             print("Page doesn't appear to have flight results", file=sys.stderr)
+            print(
+                f"  Text length: {len(text)}, first 200: {text[:200]}", file=sys.stderr
+            )
             return None
 
         # Parse flight blocks from the page text
@@ -2879,10 +3334,7 @@ def main():
             page.on("response", on_resp)
 
             # Navigate to stays tab
-            page.goto(
-                _get_portal_url("/travel"),
-                timeout=30000,
-            )
+            page.goto(_portal_url(), timeout=30000)
             page.wait_for_timeout(5000)
 
             print(
