@@ -36,7 +36,13 @@ Run these in parallel where possible. **Never fail silently.**
 | LiteAPI | web search | ~5s | Hotel API aggregator with negotiated rates. Check `liteapi.travel`. Can find rates below public OTA pricing. |
 | RapidAPI | `rapidapi` | ~3s | Booking.com inventory and pricing. Optional, use when user asks for Booking.com specifically. |
 
-**SerpAPI, Trivago, and LiteAPI are all default.** Always search all three. Only add RapidAPI if the user asks for Booking.com specifically.
+### Quality and Ratings
+
+| Source | Skill/Tool | Speed | What It Finds |
+|--------|------------|-------|---------------|
+| TripAdvisor | `tripadvisor` | ~2s | Ratings, rankings, subratings (location/service/cleanliness), reviews, photos, amenities, awards. 5K calls/month. |
+
+**SerpAPI, Trivago, and LiteAPI are all default.** Always search all three. Only add RapidAPI if the user asks for Booking.com specifically. Use TripAdvisor for quality data (ratings, rankings, reviews) to complement pricing from other sources.
 
 ### Vacation Rentals
 

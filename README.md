@@ -90,30 +90,62 @@ The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the co
 
 ### Skills (API knowledge for your AI)
 
+Start here: the **orchestration skills** call everything else automatically.
+
+#### Orchestration
+
 | Skill | What It Does | API Key |
 |-------|-------------|---------|
-| **google-flights** | Browser-automated Google Flights search. Covers ALL airlines including Southwest. | None (free, requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
-| **ignav** | Fast REST API flight search with booking links. Market selection for price arbitrage. | [Ignav](https://ignav.com) (1,000 free) |
-| **southwest** | Southwest.com fare classes, points pricing, Companion Pass data. All 4 fare classes, cash + points. Includes logged-in change flight monitor to catch price drops on existing reservations. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker support included.) |
-| **duffel** | Real-time GDS flight search across airlines via Duffel API | [Duffel](https://duffel.com) |
-| **seats-aero** | Award flight availability across 25+ mileage programs | [Seats.aero](https://seats.aero) Pro/Partner |
-| **awardwallet** | Loyalty program balances, elite status, history | [AwardWallet](https://business.awardwallet.com) Business |
-| **serpapi** | Google Hotels search and destination discovery. Optional (not needed for flights). | [SerpAPI](https://serpapi.com) |
-| **rapidapi** | Booking.com hotel prices. Optional. | [RapidAPI](https://rapidapi.com) |
-| **atlas-obscura** | Hidden gems near any destination | None (free) |
-| **scandinavia-transit** | Trains, buses, ferries in Norway/Sweden/Denmark | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) |
-| **wheretocredit** | Mileage earning rates by airline and booking class across 50+ FF programs | None (free) |
-| **seatmaps** | Aircraft seat maps, cabin dimensions, seat recommendations via SeatMaps.com + AeroLOPA | None (free, requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
-| **american-airlines** | AAdvantage balance, elite status, loyalty points. AwardWallet doesn't support AA. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker support included.) |
-| **premium-hotels** | Search 4,659 Amex FHR/THC + Chase Edit hotels by city. Compare credits, find stacking opportunities. | None (free, local data) |
-| **transfer-partners** | Find the cheapest way to book awards using your transferable points. Cross-references seats.aero with transfer ratios from 6 card issuers. | None (free, local data) |
-| **trip-calculator** | "Cash or points?" answered with math. Compares total cost factoring in transfer ratios, taxes, and opportunity cost. | None (free, local data) |
-| **compare-flights** | Unified flight comparison across ALL sources. Orchestrates Duffel, Ignav, Google Flights, Skiplagged, Kiwi, seats.aero, Southwest, Chase, and Amex in parallel. Auto-applies transfer optimization. | Uses individual skill keys |
-| **compare-hotels** | Unified hotel comparison across portals, metasearch, and Airbnb. Identifies FHR/Edit stacking opportunities. | Uses individual skill keys |
-| **award-calendar** | Find the cheapest award dates for a route across a date range. Calendar grid view with best deals highlighted. | Seats.aero Pro |
-| **trip-planner** | Full trip planning: flights + hotels + points optimization in one shot. "Plan a trip to Paris Aug 11-15." | Uses individual skill keys |
-| **chase-travel** | Chase UR travel portal: flight + hotel search with Points Boost detection and Edit hotel benefits. Requires Sapphire Reserve or Preferred. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker: `ghcr.io/borski/chase-travel`.) |
-| **amex-travel** | Amex Travel portal: flight + hotel search with IAP discount detection and FHR/THC hotel benefits. Requires Platinum Card. | None (free, requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright). Docker: `ghcr.io/borski/amex-travel`.) |
+| **award-calendar** | Cheapest award dates for a route across a date range. Calendar grid view. | Seats.aero Pro |
+| **compare-flights** | Unified flight comparison across ALL sources in parallel. Auto-applies transfer optimization. | Uses individual skill keys |
+| **compare-hotels** | Unified hotel comparison across portals, metasearch, and Airbnb. FHR/Edit stacking detection. | Uses individual skill keys |
+| **trip-calculator** | "Cash or points?" answered with math. Transfer ratios, taxes, opportunity cost. | None (free, local data) |
+| **trip-planner** | Full trip planning: flights + hotels + points in one shot. | Uses individual skill keys |
+
+#### Flights
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **duffel** | Primary cash prices. Real GDS per-fare-class data. | [Duffel](https://duffel.com) |
+| **google-flights** | Browser-automated Google Flights. All airlines including Southwest. | None (requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
+| **ignav** | Fast REST API cash prices. Market selection for arbitrage. | [Ignav](https://ignav.com) (1,000 free) |
+| **seats-aero** | Award availability across 25+ mileage programs. | [Seats.aero](https://seats.aero) Pro/Partner |
+| **seatmaps** | Aircraft seat maps, cabin dimensions, seat recommendations. | None (requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
+| **southwest** | SW fare classes, points pricing, Companion Pass. Change flight price drop monitor. Docker: `ghcr.io/borski/sw-fares`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
+
+#### Credit Card Travel Portals
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **amex-travel** | Amex MR portal: flights, hotels, IAP discounts, FHR/THC benefits. Requires Platinum. Docker: `ghcr.io/borski/amex-travel`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
+| **chase-travel** | Chase UR portal: flights, hotels, Points Boost, Edit benefits. Requires Sapphire. Docker: `ghcr.io/borski/chase-travel`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
+
+#### Hotels and Accommodation
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **premium-hotels** | Search 4,659 Amex FHR/THC + Chase Edit hotels by city. Stacking opportunities. | None (local data) |
+| **rapidapi** | Booking.com hotel prices. | [RapidAPI](https://rapidapi.com) |
+| **serpapi** | Google Hotels search and destination discovery. | [SerpAPI](https://serpapi.com) |
+
+Also use **tripadvisor** (under Destinations) for hotel ratings, rankings, subratings, and reviews.
+
+#### Loyalty and Points
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **american-airlines** | AAdvantage balance and elite status. AwardWallet doesn't support AA. Docker: `ghcr.io/borski/aa-miles-check`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
+| **awardwallet** | All loyalty balances, elite status, history. | [AwardWallet](https://business.awardwallet.com) Business |
+| **transfer-partners** | Cheapest transfer path from credit card points to mileage programs. | None (local data) |
+| **wheretocredit** | Mileage earning rates by airline and booking class across 50+ programs. | None (free) |
+
+#### Destinations and Transit
+
+| Skill | What It Does | API Key |
+|-------|-------------|---------|
+| **atlas-obscura** | Hidden gems and unusual attractions near any destination. | None (free) |
+| **scandinavia-transit** | Trains, buses, ferries in Norway, Sweden, and Denmark. | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) |
+| **tripadvisor** | Hotel ratings, restaurant search, attraction reviews, nearby search. 5K calls/month. | [TripAdvisor](https://www.tripadvisor.com/developers) |
 
 ## How It Works
 
@@ -213,44 +245,63 @@ travel-hacking-toolkit/
 │   ├── sweet-spots.json            # High-value award redemptions + booking windows
 │   └── transfer-partners.json      # Credit card transfer partners + ratios
 ├── skills/
-│   ├── duffel/SKILL.md             # Real-time flight search
-│   ├── seats-aero/SKILL.md         # Award flight search
-│   ├── awardwallet/SKILL.md        # Loyalty balances
-│   ├── serpapi/SKILL.md            # Cash prices + hotels
-│   ├── rapidapi/SKILL.md           # Secondary price source
-│   ├── atlas-obscura/              # Hidden gems (+ Node.js scraper)
-│   │   ├── SKILL.md
-│   │   ├── ao.mjs
-│   │   └── package.json
+│   │
+│   │  # ── Orchestration ──
+│   ├── award-calendar/SKILL.md     # Cheapest award dates across a date range
+│   ├── compare-flights/SKILL.md    # Unified flight comparison (all sources)
+│   ├── compare-hotels/SKILL.md     # Unified hotel comparison (all sources)
+│   ├── trip-calculator/SKILL.md    # Cash vs points calculator
+│   ├── trip-planner/SKILL.md       # Full trip planning in one shot
+│   │
+│   │  # ── Flights ──
+│   ├── duffel/SKILL.md             # Primary cash prices (GDS)
+│   ├── google-flights/SKILL.md     # Browser-automated Google Flights
+│   ├── ignav/SKILL.md              # Secondary cash prices (REST API)
+│   ├── seatmaps/SKILL.md           # Aircraft seat maps
+│   ├── seats-aero/SKILL.md         # Award flight availability
 │   ├── southwest/                  # Southwest fares + change monitoring
 │   │   ├── SKILL.md
 │   │   ├── Dockerfile
 │   │   └── scripts/
-│   │       ├── search_fares.py     # New flight search
-│   │       ├── check_change.py     # Logged-in price drop monitor (read-only)
-│   │       └── entrypoint.sh       # Docker entrypoint (routes search/change)
-│   ├── seatmaps/SKILL.md           # Seat maps + cabin dimensions
-│   ├── american-airlines/          # AA AAdvantage balance checker
+│   │       ├── search_fares.py
+│   │       ├── check_change.py
+│   │       └── entrypoint.sh
+│   │
+│   │  # ── Credit Card Portals ──
+│   ├── amex-travel/                # Amex MR portal (flights + hotels)
 │   │   ├── SKILL.md
 │   │   ├── Dockerfile
 │   │   └── scripts/
-│   │       └── check_balance.py    # Balance + status extractor
-│   ├── premium-hotels/SKILL.md     # FHR/THC/Chase Edit hotel comparison
-│   ├── transfer-partners/SKILL.md  # Transfer partner optimizer
-│   ├── trip-calculator/SKILL.md    # Cash vs points calculator
-│   ├── chase-travel/               # Chase UR travel portal
+│   │       └── search_flights.py
+│   ├── chase-travel/               # Chase UR portal (flights + hotels)
 │   │   ├── SKILL.md
 │   │   ├── Dockerfile
 │   │   └── scripts/
-│   │       ├── search_flights.py   # Flight + hotel search
-│   │       └── record_search.py    # Network traffic capture (API discovery)
-│   ├── amex-travel/                # Amex Travel portal
+│   │       ├── search_flights.py
+│   │       └── record_search.py
+│   │
+│   │  # ── Hotels ──
+│   ├── premium-hotels/SKILL.md     # FHR/THC/Chase Edit local database
+│   ├── rapidapi/SKILL.md           # Booking.com prices
+│   ├── serpapi/SKILL.md            # Google Hotels + destination discovery
+│   │
+│   │  # ── Loyalty ──
+│   ├── american-airlines/          # AA AAdvantage balance
 │   │   ├── SKILL.md
 │   │   ├── Dockerfile
 │   │   └── scripts/
-│   │       └── search_flights.py   # Flight + hotel search
-│   └── scandinavia-transit/        # Nordic trains/buses/ferries
-│       └── SKILL.md
+│   │       └── check_balance.py
+│   ├── awardwallet/SKILL.md        # All loyalty balances
+│   ├── transfer-partners/SKILL.md  # Transfer path optimizer
+│   ├── wheretocredit/SKILL.md      # Mileage earning rates
+│   │
+│   │  # ── Destinations & Transit ──
+│   ├── atlas-obscura/              # Hidden gems (+ Node.js scraper)
+│   │   ├── SKILL.md
+│   │   ├── ao.mjs
+│   │   └── package.json
+│   ├── scandinavia-transit/SKILL.md # Nordic trains/buses/ferries
+│   └── tripadvisor/SKILL.md        # Ratings, reviews, nearby restaurants
 ├── scripts/
 │   └── setup.sh                    # Interactive installer
 └── LICENSE                         # MIT
