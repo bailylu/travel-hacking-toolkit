@@ -26,6 +26,9 @@
     "airbnb": {
       "command": "npx",
       "args": ["-y", "@openbnb/mcp-server-airbnb@latest", "--ignore-robots-txt"]
+    },
+    "fli": {
+      "command": "fli-mcp"
     }
   }
 }

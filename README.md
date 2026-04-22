@@ -1,325 +1,145 @@
 # Travel Hacking Toolkit
 
-AI-powered travel hacking with points, miles, and award flights. Drop-in skills and MCP servers for [OpenCode](https://opencode.ai) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+AI 驱动的旅行积分工具，集成多个航班搜索、酒店查询、积分管理服务。
 
-Ask your AI to find you a 60,000-mile business class flight to Tokyo. It'll search award availability across 25+ programs, compare against cash prices, check your loyalty balances, and tell you the best play.
+**支持的 AI**: Claude Code, OpenCode
 
-## Quick Start
+## 快速开始
+
+### 1. 安装依赖
 
 ```bash
-git clone https://github.com/borski/travel-hacking-toolkit.git
+# 安装 Fli (Google Flights 搜索)
+pipx install flights
+
+# 克隆项目
+git clone <repo-url>
 cd travel-hacking-toolkit
-./scripts/setup.sh
+
+# 复制配置文件
+cp .env.example .env
 ```
 
-The setup script walks you through everything: picks your tool (OpenCode, Claude Code, or both), creates your API key config files, installs dependencies, and optionally installs skills system-wide.
+### 2. 配置 API Key
 
-The 5 free MCP servers (Skiplagged, Kiwi, Trivago, Ferryhopper, Airbnb) work immediately with zero API keys. For the full experience, add at minimum:
+编辑 `.env` 文件，填入你需要的 API key：
 
-| Key | Why | Free Tier |
-|-----|-----|-----------|
-| `SEATS_AERO_API_KEY` | Award flight search. The main event. | No (Pro ~$8/mo) |
-| `DUFFEL_API_KEY_LIVE` | Primary cash flight prices. Real GDS data. | Yes (search free, pay per booking) |
-| `IGNAV_API_KEY` | Secondary cash flight prices. Fast REST API. | Yes (1,000 free requests) |
+| 服务 | 用途 | 是否必须 | 获取地址 |
+|------|------|---------|---------|
+| **Fli** | Google Flights 搜索 | ✅ 不需要 key | 已安装 |
+| **Airlabs** | 航班追踪、实时位置 | 推荐 | [airlabs.co](https://airlabs.co) |
+| **Duffel** | 实时现金价格 | 推荐 | [duffel.com](https://duffel.com) |
+| **SerpAPI** | Google Hotels | 可选 | [serpapi.com](https://serpapi.com) |
+| **RapidAPI** | Booking.com | 可选 | [rapidapi.com](https://rapidapi.com) |
+| **Seats.aero** | 奖励航班搜索 | 可选 | [seats.aero](https://seats.aero) |
+| **AwardWallet** | 积分余额管理 | 可选 | [awardwallet.com](https://business.awardwallet.com) |
 
-For the Southwest and American Airlines skills (optional), pull the pre-built Docker images:
+### 3. 配置 MCP 服务器
 
-```bash
-# Southwest: fare search + price drop monitoring
-docker pull ghcr.io/borski/sw-fares:latest
-docker run --rm ghcr.io/borski/sw-fares --origin SJC --dest DEN --depart 2026-05-15 --points --json
-docker run --rm -e SW_USERNAME -e SW_PASSWORD ghcr.io/borski/sw-fares change --conf ABC123 --first Jane --last Doe --json
+复制并修改 `.mcp.json`：
 
-# American Airlines: AAdvantage balance + elite status (not in AwardWallet)
-docker pull ghcr.io/borski/aa-miles-check:latest
-docker run --rm -e AA_USERNAME=your_number -e AA_PASSWORD=your_pass ghcr.io/borski/aa-miles-check --json
+```json
+{
+  "mcpServers": {
+    "skiplagged": {
+      "type": "http",
+      "url": "https://mcp.skiplagged.com/mcp"
+    },
+    "kiwi": {
+      "type": "http",
+      "url": "https://mcp.kiwi.com"
+    },
+    "trivago": {
+      "type": "http",
+      "url": "https://mcp.trivago.com/mcp"
+    },
+    "ferryhopper": {
+      "type": "http",
+      "url": "https://mcp.ferryhopper.com/mcp"
+    },
+    "fli": {
+      "command": "fli-mcp"
+    },
+    "airbnb": {
+      "command": "npx",
+      "args": ["-y", "@openbnb/mcp-server-airbnb@latest", "--ignore-robots-txt"]
+    }
+  }
+}
 ```
 
-For the Chase and Amex Travel portal skills (optional), pull pre-built Docker images:
+### 4. 启动 Claude Code
 
 ```bash
-# Chase Travel: UR portal pricing, Points Boost, Edit hotels
-docker pull ghcr.io/borski/chase-travel:latest
-docker run --rm -v ~/.chase-travel-profiles:/profiles -v /tmp:/tmp/host \
-    -e CHASE_USERNAME -e CHASE_PASSWORD \
-    ghcr.io/borski/chase-travel script /scripts/search_flights.py \
-    --origin SFO --dest CDG --depart 2026-08-11 --cabin business --json
-
-# Amex Travel: MR portal pricing, IAP discounts, FHR/THC hotels
-docker pull ghcr.io/borski/amex-travel:latest
-docker run --rm -v ~/.amex-travel-profiles:/profiles \
-    -e AMEX_USERNAME -e AMEX_PASSWORD \
-    ghcr.io/borski/amex-travel script /app/search_flights.py \
-    --origin SFO --dest NRT --depart 2026-08-15 --cabin business --json
-```
-
-Then launch your tool:
-
-```bash
-# OpenCode
-opencode
-
-# Claude Code
 claude --strict-mcp-config --mcp-config .mcp.json
 ```
 
-The `--strict-mcp-config` flag tells Claude Code to load MCP servers from the config file directly. This is more reliable than auto-discovery ([known issue](https://github.com/anthropics/claude-code/issues/5037)).
+## 可用工具
 
-## What's Included
+### 免费 MCP 服务器（无需 API Key）
 
-### MCP Servers (real-time tools)
+| 服务 | 用途 |
+|------|------|
+| Skiplagged | 隐藏城市机票 |
+| Kiwi.com | 虚拟联程航班 |
+| Trivago | 酒店元搜索 |
+| Ferryhopper | 欧洲渡轮搜索 |
+| Airbnb | 民宿搜索 |
+| Fli | Google Flights（无 key，覆盖所有航司）|
 
-| Server | What It Does | API Key |
-|--------|-------------|---------|
-| [Skiplagged](https://skiplagged.com) | Flight search with hidden city fares | None (free) |
-| [Kiwi.com](https://www.kiwi.com) | Flights with virtual interlining (creative cross-airline routing) | None (free) |
-| [Trivago](https://mcp.trivago.com/docs) | Hotel metasearch across booking sites | None (free) |
-| [Ferryhopper](https://ferryhopper.github.io/fh-mcp/) | Ferry routes across 33 countries, 190+ operators | None (free) |
-| [Airbnb](https://github.com/openbnb-org/mcp-server-airbnb) | Search Airbnb listings, property details, pricing. Includes geocoding fix, property type filter, and DISABLE_GEOCODING opt-out. | None (free) |
-| [LiteAPI](https://mcp.liteapi.travel) | Hotel search with live rates and booking | [LiteAPI](https://liteapi.travel) |
+### 航班搜索优先级
 
-### Skills (API knowledge for your AI)
+1. **Fli** - Google Flights，覆盖所有航司包括 Southwest
+2. **Duffel** - GDS 实时价格，最准确
+3. **Ignav** - REST API 备用
+4. **Skiplagged** - 隐藏城市省钱
+5. **Kiwi** - 创意联程
+6. **Seats.aero** - 奖励里程搜索（需 key）
 
-Start here: the **orchestration skills** call everything else automatically.
+### 积分管理
 
-#### Orchestration
+- **AwardWallet** - 所有积分里程余额
+- **Seats.aero** - 25+ 里程计划可用性
 
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **award-calendar** | Cheapest award dates for a route across a date range. Calendar grid view. | Seats.aero Pro |
-| **compare-flights** | Unified flight comparison across ALL sources in parallel. Auto-applies transfer optimization. | Uses individual skill keys |
-| **compare-hotels** | Unified hotel comparison across portals, metasearch, and Airbnb. FHR/Edit stacking detection. | Uses individual skill keys |
-| **trip-calculator** | "Cash or points?" answered with math. Transfer ratios, taxes, opportunity cost. | None (free, local data) |
-| **trip-planner** | Full trip planning: flights + hotels + points in one shot. | Uses individual skill keys |
+## 示例问题
 
-#### Flights
+- "帮我搜索 JFK 到 LAX 2026-05-01 的航班"
+- "查询 UA901 航班当前状态"
+- "找 SFO 到东京最便宜的商务舱奖励航班"
+- "JFK 到 LAX 5月份最便宜的日期是哪些"
+- "帮我查一下巴黎的酒店，预算 200 美元"
+- "我有 10 万 Amex MR 积分，怎么用最划算"
 
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **duffel** | Primary cash prices. Real GDS per-fare-class data. | [Duffel](https://duffel.com) |
-| **google-flights** | Browser-automated Google Flights. All airlines including Southwest. | None (requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
-| **ignav** | Fast REST API cash prices. Market selection for arbitrage. | [Ignav](https://ignav.com) (1,000 free) |
-| **seats-aero** | Award availability across 25+ mileage programs. | [Seats.aero](https://seats.aero) Pro/Partner |
-| **seatmaps** | Aircraft seat maps, cabin dimensions, seat recommendations. | None (requires [agent-browser](https://github.com/AidenLiminalAI/agent-browser)) |
-| **southwest** | SW fare classes, points pricing, Companion Pass. Change flight price drop monitor. Docker: `ghcr.io/borski/sw-fares`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
-
-#### Credit Card Travel Portals
-
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **amex-travel** | Amex MR portal: flights, hotels, IAP discounts, FHR/THC benefits. Requires Platinum. Docker: `ghcr.io/borski/amex-travel`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
-| **chase-travel** | Chase UR portal: flights, hotels, Points Boost, Edit benefits. Requires Sapphire. Docker: `ghcr.io/borski/chase-travel`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
-
-#### Hotels and Accommodation
-
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **premium-hotels** | Search 4,659 Amex FHR/THC + Chase Edit hotels by city. Stacking opportunities. | None (local data) |
-| **rapidapi** | Booking.com hotel prices. | [RapidAPI](https://rapidapi.com) |
-| **serpapi** | Google Hotels search and destination discovery. | [SerpAPI](https://serpapi.com) |
-
-Also use **tripadvisor** (under Destinations) for hotel ratings, rankings, subratings, and reviews.
-
-#### Loyalty and Points
-
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **american-airlines** | AAdvantage balance and elite status. AwardWallet doesn't support AA. Docker: `ghcr.io/borski/aa-miles-check`. | None (requires [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)) |
-| **awardwallet** | All loyalty balances, elite status, history. | [AwardWallet](https://business.awardwallet.com) Business |
-| **transfer-partners** | Cheapest transfer path from credit card points to mileage programs. | None (local data) |
-| **wheretocredit** | Mileage earning rates by airline and booking class across 50+ programs. | None (free) |
-
-#### Destinations and Transit
-
-| Skill | What It Does | API Key |
-|-------|-------------|---------|
-| **atlas-obscura** | Hidden gems and unusual attractions near any destination. | None (free) |
-| **scandinavia-transit** | Trains, buses, ferries in Norway, Sweden, and Denmark. Includes Danish fare/zone pricing. | [Entur](https://developer.entur.org) + [Trafiklab](https://www.trafiklab.se) + [Rejseplanen](https://labs.rejseplanen.dk) |
-| **tripadvisor** | Hotel ratings, restaurant search, attraction reviews, nearby search. 5K calls/month. | [TripAdvisor](https://www.tripadvisor.com/developers) |
-
-## How It Works
-
-### Skills
-
-Skills are markdown files that teach your AI how to call travel APIs. They contain endpoint documentation, curl examples, useful jq filters, and workflow guidance. Both OpenCode and Claude Code support skills natively.
-
-The `skills/` directory is the canonical source. The setup script either:
-- Copies them to your tool's global skills directory (`~/.config/opencode/skills/` or `~/.claude/skills/`)
-- Or creates project-level symlinks so they load when you work from this directory
-
-### MCP Servers
-
-MCP (Model Context Protocol) servers give your AI real-time tools it can call directly. The configs are in:
-- `opencode.json` for OpenCode
-- `.mcp.json` for Claude Code
-
-Skiplagged, Kiwi.com, Trivago, Ferryhopper, and Airbnb need no setup at all. LiteAPI is also a remote server but needs an API key configured in your settings.
-
-## Which Skill Do I Use?
-
-```
-"Plan a trip to Paris"
-  └─→ trip-planner (runs everything below automatically)
-
-"Find flights SFO to CDG"
-  ├─ Know exact dates? → compare-flights (all sources in parallel)
-  └─ Flexible dates? → award-calendar (cheapest dates for a route)
-
-"Find hotels in Paris"
-  └─→ compare-hotels (portals + metasearch + Airbnb)
-
-"Should I use points or cash?"
-  └─→ trip-calculator (CPP analysis + opportunity cost)
-
-"Which of my points should I use?"
-  └─→ transfer-partners (cheapest transfer path)
-
-"Which FHR/Edit hotels are in Stockholm?"
-  └─→ premium-hotels (local data, instant)
-
-"Check my SW reservations for price drops"
-  └─→ southwest (change flight monitor)
-```
-
-The **orchestration skills** (`trip-planner`, `compare-flights`, `compare-hotels`) call the individual source skills automatically. Start with those unless you need a specific source.
-
-## The Travel Hacking Workflow
-
-The core question: **"Should I burn points or pay cash?"**
-
-1. **Search ALL flight sources** — Duffel + Ignav + Google Flights + Skiplagged + Kiwi for cash. Seats.aero for awards. Southwest for SW points. Chase + Amex portals for pay-with-points.
-2. **Optimize transfers** — `transfer-partners` finds the cheapest path from your credit card points to the loyalty program offering the best deal.
-3. **Compare** — `trip-calculator` shows CPP for each option. Higher CPP = better use of points. Below floor valuation = pay cash instead.
-4. **Check balances** — AwardWallet confirms you have enough points.
-5. **Book it** — Use booking links from Seats.aero, Duffel, or Ignav. Don't transfer points until you've confirmed availability on the airline's site.
-
-### Example Prompts
-
-```
-"Plan a trip to Paris Aug 11-15 in business class"
-"Find me the cheapest business class award from SFO to Tokyo in August"
-"When's the cheapest time to fly SFO to NRT on points?"
-"Compare all options for SFO to CDG round trip"
-"Find hotels in Stockholm, include Airbnb"
-"Compare points vs cash for a round trip JFK to London next March"
-"What are my United miles and Chase UR balances?"
-"Check my Southwest reservations for price drops"
-"Find hidden gems near Lisbon"
-"How do I get from Oslo to Bergen by train?"
-"What's the seat pitch on Air France 83 in business class?"
-"How many AAdvantage miles do I have?"
-"Which FHR and Chase Edit hotels are in Stockholm? Any stacking opportunities?"
-"What's the Points Boost rate for SFO to Tokyo business class on Chase?"
-"Compare Amex IAP fares vs cash for business class to Paris"
-```
-
-## Project Structure
+## 项目结构
 
 ```
 travel-hacking-toolkit/
-├── AGENTS.md -> CLAUDE.md          # OpenCode project instructions (symlink)
-├── CLAUDE.md                       # Project instructions and workflow guidance
-├── opencode.json                   # OpenCode MCP server config
-├── .mcp.json                       # Claude Code MCP server config
-├── .env.example                    # API key template (OpenCode)
-├── .claude/
-│   ├── settings.local.json.example # API key template (Claude Code)
-│   └── skills -> ../skills         # Symlink to skills
-├── .opencode/
-│   └── skills -> ../skills         # Symlink to skills
-├── data/
-│   ├── alliances.json              # Airline alliance membership + booking relationships
-│   ├── hotel-chains.json           # Hotel chains, sub-brands, loyalty programs, reverse lookup
-│   ├── partner-awards.json         # Which programs book which airlines (alliance + bilateral)
-│   ├── points-valuations.json      # Points/miles valuations from 4 sources (floor/ceiling)
-│   ├── sweet-spots.json            # High-value award redemptions + booking windows
-│   └── transfer-partners.json      # Credit card transfer partners + ratios
-├── skills/
-│   │
-│   │  # ── Orchestration ──
-│   ├── award-calendar/SKILL.md     # Cheapest award dates across a date range
-│   ├── compare-flights/SKILL.md    # Unified flight comparison (all sources)
-│   ├── compare-hotels/SKILL.md     # Unified hotel comparison (all sources)
-│   ├── trip-calculator/SKILL.md    # Cash vs points calculator
-│   ├── trip-planner/SKILL.md       # Full trip planning in one shot
-│   │
-│   │  # ── Flights ──
-│   ├── duffel/SKILL.md             # Primary cash prices (GDS)
-│   ├── google-flights/SKILL.md     # Browser-automated Google Flights
-│   ├── ignav/SKILL.md              # Secondary cash prices (REST API)
-│   ├── seatmaps/SKILL.md           # Aircraft seat maps
-│   ├── seats-aero/SKILL.md         # Award flight availability
-│   ├── southwest/                  # Southwest fares + change monitoring
-│   │   ├── SKILL.md
-│   │   ├── Dockerfile
-│   │   └── scripts/
-│   │       ├── search_fares.py
-│   │       ├── check_change.py
-│   │       └── entrypoint.sh
-│   │
-│   │  # ── Credit Card Portals ──
-│   ├── amex-travel/                # Amex MR portal (flights + hotels)
-│   │   ├── SKILL.md
-│   │   ├── Dockerfile
-│   │   └── scripts/
-│   │       └── search_flights.py
-│   ├── chase-travel/               # Chase UR portal (flights + hotels)
-│   │   ├── SKILL.md
-│   │   ├── Dockerfile
-│   │   └── scripts/
-│   │       ├── search_flights.py
-│   │       └── record_search.py
-│   │
-│   │  # ── Hotels ──
-│   ├── premium-hotels/SKILL.md     # FHR/THC/Chase Edit local database
-│   ├── rapidapi/SKILL.md           # Booking.com prices
-│   ├── serpapi/SKILL.md            # Google Hotels + destination discovery
-│   │
-│   │  # ── Loyalty ──
-│   ├── american-airlines/          # AA AAdvantage balance
-│   │   ├── SKILL.md
-│   │   ├── Dockerfile
-│   │   └── scripts/
-│   │       └── check_balance.py
-│   ├── awardwallet/SKILL.md        # All loyalty balances
-│   ├── transfer-partners/SKILL.md  # Transfer path optimizer
-│   ├── wheretocredit/SKILL.md      # Mileage earning rates
-│   │
-│   │  # ── Destinations & Transit ──
-│   ├── atlas-obscura/              # Hidden gems (+ Node.js scraper)
-│   │   ├── SKILL.md
-│   │   ├── ao.mjs
-│   │   └── package.json
-│   ├── scandinavia-transit/SKILL.md # Nordic trains/buses/ferries
-│   └── tripadvisor/SKILL.md        # Ratings, reviews, nearby restaurants
-├── scripts/
-│   └── setup.sh                    # Interactive installer
-└── LICENSE                         # MIT
+├── .env.example          # API Key 模板
+├── .mcp.json             # MCP 服务器配置
+├── CLAUDE.md             # AI 指令文件（重要）
+├── skills/               # 各服务 Skill 文档
+│   ├── fli/              # Google Flights
+│   ├── airlabs/          # 航班追踪
+│   ├── duffel/           # GDS 实时价格
+│   ├── seats-aero/        # 奖励航班
+│   ├── serpapi/           # Google Hotels
+│   └── ...
+├── data/                 # 本地数据文件
+│   ├── transfer-partners.json   # 积分转换比例
+│   ├── points-valuations.json  # 积分估值
+│   ├── alliances.json          # 航空联盟
+│   └── hotel-chains.json       # 酒店集团
+└── scripts/
+    └── setup.sh          # 交互式安装脚本
 ```
 
-## Credits
+## 注意事项
 
-- [ajimix/travel-hacking-toolkit](https://github.com/ajimix/travel-hacking-toolkit) — Fork that contributed the google-flights skill, ignav skill, market selection strategy, and markdown table output formatting
-- [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright) by [@Vinyzu](https://github.com/Vinyzu) — Undetected Playwright fork that makes the Southwest skill possible
-- [美卡指南 (US Card Guide)](https://www.google.com/maps/d/viewer?mid=1HygPCP9ghtDptTNnpUpd_C507Mq_Fhec) by Scott — FHR/THC/Chase Edit hotel property data via Google My Maps KML
-- [SeatMaps.com](https://seatmaps.com) by [Quicket GmbH](https://quicket.io) — Aircraft seat maps, cabin data, seat recommendations
-- [AeroLOPA](https://www.aerolopa.com/) — Detailed to-scale aircraft seat maps with window positions
-- [Seats.aero](https://seats.aero) — Award flight availability data
-- [AwardWallet](https://awardwallet.com) — Loyalty program tracking
-- [Duffel](https://duffel.com) — Real-time flight search and booking
-- [SerpAPI](https://serpapi.com) — Google search result APIs
-- [RapidAPI](https://rapidapi.com) — API marketplace
-- [atlas-obscura-api](https://github.com/bartholomej/atlas-obscura-api) by [@bartholomej](https://github.com/bartholomej) — Atlas Obscura scraper
-- [Skiplagged MCP](https://mcp.skiplagged.com) — Flight search with hidden city fares
-- [Kiwi.com MCP](https://www.kiwi.com/stories/kiwi-mcp-connector/) — Flight search with virtual interlining
-- [Trivago MCP](https://mcp.trivago.com/docs) — Hotel metasearch
-- [Ferryhopper MCP](https://ferryhopper.github.io/fh-mcp/) by [Ferryhopper](https://ferryhopper.com) — Ferry routes across 33 countries
-- [mcp-server-airbnb](https://github.com/openbnb-org/mcp-server-airbnb) by [OpenBnB](https://github.com/openbnb-org) — Airbnb search and listing details
-- [LiteAPI MCP](https://mcp.liteapi.travel) by [LiteAPI](https://liteapi.travel) — Hotel booking
-- [Entur](https://developer.entur.org) — Norwegian transit API
-- [Trafiklab / ResRobot](https://www.trafiklab.se) — Swedish transit API
-- [Rejseplanen](https://labs.rejseplanen.dk) — Danish transit API
+- Seats.aero 数据是缓存的，不是实时数据
+- Duffel 搜索免费，只有预订时才收费
+- Fli 不需要任何 API Key，直接可用
+- 所有 API 都有用量限制，注意查看免费额度
 
-## License
+## 许可
 
-MIT
+MIT License
