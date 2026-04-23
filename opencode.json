@@ -21,14 +21,6 @@
       "url": "https://mcp.ferryhopper.com/mcp",
       "enabled": true
     },
-    "liteapi": {
-      "type": "remote",
-      "url": "https://mcp.liteapi.travel/api/mcp",
-      "headers": {
-        "Authorization": "Bearer {env:LITEAPI_API_KEY}"
-      },
-      "enabled": true
-    },
     "airbnb": {
       "type": "local",
       "command": ["npx", "-y", "@openbnb/mcp-server-airbnb@latest", "--ignore-robots-txt"],

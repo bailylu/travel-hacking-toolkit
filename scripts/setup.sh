@@ -26,7 +26,7 @@ case "$TOOL_CHOICE" in
     ;;
 esac
 
-# --- API key setup (always, this is the main value) ---
+# --- API key setup ---
 setup_api_keys() {
   echo ""
   echo "Setting up API keys..."
@@ -34,7 +34,7 @@ setup_api_keys() {
   if [[ "$TOOL_CHOICE" == "1" || "$TOOL_CHOICE" == "3" ]]; then
     if [ ! -f "$REPO_DIR/.env" ]; then
       cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
-      echo "  Created .env (OpenCode). Edit it to add your API keys."
+      echo "  Created .env. Edit it to add your API keys."
     else
       echo "  .env already exists. Skipping."
     fi
@@ -45,7 +45,7 @@ setup_api_keys() {
     if [ ! -f "$claude_settings" ]; then
       if [ -f "$REPO_DIR/.claude/settings.local.json.example" ]; then
         cp "$REPO_DIR/.claude/settings.local.json.example" "$claude_settings"
-        echo "  Created .claude/settings.local.json (Claude Code, auto-gitignored)."
+        echo "  Created .claude/settings.local.json."
         echo "  Edit it to add your API keys."
       fi
     else
@@ -54,76 +54,60 @@ setup_api_keys() {
   fi
 
   echo ""
-  echo "  The 5 free MCP servers work without any keys."
-  echo "  For the full experience, add at minimum:"
-  echo "    SEATS_AERO_API_KEY     Award flight search (the main event)"
-  echo "    DUFFEL_API_KEY_LIVE    Primary cash flight prices (search free, pay per booking)"
-  echo "    IGNAV_API_KEY          Secondary cash flight prices (1,000 free requests)"
+  echo "  REQUIRED API Keys:"
+  echo "    SERPAPI_API_KEY  - Get at https://serpapi.com (100 free searches/month)"
+  echo "    FLYAI_API_KEY    - Get at https://open.fliggy.com/ (飞猪开放平台)"
+  echo ""
+  echo "  FREE (no key needed):"
+  echo "    fli              - International flights via Google Flights"
+  echo "    premium-hotels   - FHR/Chase Edit hotel lookup (local data)"
   echo ""
 }
 
-# --- Atlas Obscura npm deps ---
-install_atlas_deps() {
-  echo "Installing Atlas Obscura dependencies..."
-  if command -v npm &>/dev/null; then
-    (cd "$REPO_DIR/skills/atlas-obscura" && npm install --silent 2>/dev/null)
-    echo "  Done."
+# --- Install Fli ---
+install_fli() {
+  echo ""
+  echo "Installing Fli (Google Flights CLI)..."
+  if command -v fli &>/dev/null; then
+    echo "  ✓ fli already installed"
   else
-    echo "  npm not found. Atlas Obscura will auto-install on first use if Node.js is available."
+    echo "  Installing fli..."
+    # Check if pipx is available
+    if command -v pipx &>/dev/null; then
+      pipx install flights 2>/dev/null || echo "  pipx install failed, trying pip..."
+    fi
+    # Fallback to pip
+    if ! command -v fli &>/dev/null; then
+      pip install flights 2>/dev/null || echo "  pip install failed"
+    fi
+    if command -v fli &>/dev/null; then
+      echo "  ✓ fli installed"
+    else
+      echo "  ⚠ fli not in PATH. You may need to manually install."
+      echo "    pipx install flights"
+    fi
   fi
 }
 
-# --- Optional tools ---
-install_optional_tools() {
+# --- Install FlyAI ---
+install_flyai() {
   echo ""
-  echo "Optional tools for additional flight search skills:"
-  echo ""
-
-  # agent-browser (for google-flights skill)
-  if command -v agent-browser &>/dev/null; then
-    echo "  ✓ agent-browser already installed (google-flights skill)"
+  echo "Installing FlyAI (Fliggy CLI for China travel)..."
+  if command -v flyai &>/dev/null; then
+    echo "  ✓ flyai already installed"
   else
-    echo "  agent-browser: Enables the google-flights skill (browser-automated Google Flights)."
-    read -rp "  Install agent-browser? [y/N]: " AB_CHOICE
-    if [[ "$AB_CHOICE" == "y" || "$AB_CHOICE" == "Y" ]]; then
-      npm install -g agent-browser && agent-browser install
-      echo "  ✓ agent-browser installed."
+    echo "  Installing flyai..."
+    if command -v npm &>/dev/null; then
+      npm install -g @lobehub/flyai-cli 2>/dev/null || echo "  npm install failed"
+    fi
+    if ! command -v flyai &>/dev/null; then
+      echo "  ⚠ flyai not installed. Install with:"
+      echo "    npm install -g @lobehub/flyai-cli"
+      echo "    FlyAI requires Node.js 20+"
     else
-      echo "  Skipped. google-flights skill won't work without it."
+      echo "  ✓ flyai installed"
     fi
   fi
-
-  echo ""
-
-  # Southwest: Docker or Patchright
-  echo "  Southwest skill: searches southwest.com for fare classes and points pricing."
-  echo "  Requires either Docker (recommended) or Patchright (Python)."
-  echo ""
-
-  if command -v docker &>/dev/null; then
-    echo "  Docker detected. Pulling pre-built images..."
-    docker pull ghcr.io/borski/sw-fares:latest 2>/dev/null && echo "  ✓ Southwest Docker image ready." || echo "  Could not pull SW image. Build locally: docker build -t sw-fares skills/southwest/"
-    docker pull ghcr.io/borski/aa-miles-check:latest 2>/dev/null && echo "  ✓ American Airlines Docker image ready." || echo "  Could not pull AA image. Build locally: docker build -t aa-check skills/american-airlines/"
-    echo ""
-    echo "  Chase and Amex Travel portal skills (optional, build locally):"
-    echo "  docker build -t chase-travel skills/chase-travel/"
-    echo "  docker build -t amex-travel skills/amex-travel/"
-  else
-    echo "  Docker not found."
-    if python3 -c "import patchright" 2>/dev/null; then
-      echo "  ✓ Patchright already installed (southwest skill, headed mode)"
-    else
-      read -rp "  Install Patchright for Southwest skill? [y/N]: " PR_CHOICE
-      if [[ "$PR_CHOICE" == "y" || "$PR_CHOICE" == "Y" ]]; then
-        pip install patchright && patchright install chromium
-        echo "  ✓ Patchright installed. Southwest skill will open a Chrome window briefly."
-      else
-        echo "  Skipped. Southwest skill won't work without Docker or Patchright."
-      fi
-    fi
-  fi
-
-  echo ""
 }
 
 # --- Global install (optional) ---
@@ -171,8 +155,8 @@ install_skills_to() {
 
 # --- Run ---
 setup_api_keys
-install_atlas_deps
-install_optional_tools
+install_fli
+install_flyai
 offer_global_install
 
 echo ""
@@ -197,5 +181,5 @@ if [[ "$TOOL_CHOICE" == "2" || "$TOOL_CHOICE" == "3" ]]; then
 fi
 
 echo ""
-echo "Then ask: \"Find me a cheap business class flight to Tokyo\""
+echo "Then ask: \"Find me a cheap flight from Shanghai to Tokyo\""
 echo ""

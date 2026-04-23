@@ -1,143 +1,140 @@
 # Travel Hacking Toolkit
 
-AI 驱动的旅行积分工具，集成多个航班搜索、酒店查询、积分管理服务。
+AI 驱动的旅行积分工具，集成航班搜索、酒店查询服务。针对中国用户优化，支持国内外旅行。
 
 **支持的 AI**: Claude Code, OpenCode
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 克隆项目
 
 ```bash
-# 安装 Fli (Google Flights 搜索)
-pipx install flights
-
-# 克隆项目
-git clone <repo-url>
+git clone https://github.com/bailylu/travel-hacking-toolkit.git
 cd travel-hacking-toolkit
+```
 
-# 复制配置文件
+### 2. 配置 API Key ⚠️
+
+复制配置文件并填入你的 API key：
+
+```bash
 cp .env.example .env
 ```
 
-### 2. 配置 API Key
-
-编辑 `.env` 文件，填入你需要的 API key：
+编辑 `.env` 文件：
 
 | 服务 | 用途 | 是否必须 | 获取地址 |
 |------|------|---------|---------|
-| **Fli** | Google Flights 搜索 | ✅ 不需要 key | 已安装 |
-| **Airlabs** | 航班追踪、实时位置 | 推荐 | [airlabs.co](https://airlabs.co) |
-| **Duffel** | 实时现金价格 | 推荐 | [duffel.com](https://duffel.com) |
-| **SerpAPI** | Google Hotels | 可选 | [serpapi.com](https://serpapi.com) |
-| **RapidAPI** | Booking.com | 可选 | [rapidapi.com](https://rapidapi.com) |
-| **Seats.aero** | 奖励航班搜索 | 可选 | [seats.aero](https://seats.aero) |
-| **AwardWallet** | 积分余额管理 | 可选 | [awardwallet.com](https://business.awardwallet.com) |
+| **Fli** | Google Flights 国际机票 | ✅ 不需要 key | 已安装，详见 skills/fli |
+| **FlyAI** | 飞猪 中国国内机票/酒店/景点 | ✅ **需要 key** | [飞猪开放平台](https://open.fliggy.com/) |
+| **SerpAPI** | Google Hotels 国际酒店 | ✅ **需要 key** | [serpapi.com](https://serpapi.com) |
+| **Premium Hotels** | FHR/Chase Edit 高级酒店 | ✅ 不需要 key | 本地数据 in skills/premium-hotels |
 
 ### 3. 配置 MCP 服务器
 
-复制并修改 `.mcp.json`：
+`.mcp.json` 已预配置以下服务器：
 
-```json
-{
-  "mcpServers": {
-    "skiplagged": {
-      "type": "http",
-      "url": "https://mcp.skiplagged.com/mcp"
-    },
-    "kiwi": {
-      "type": "http",
-      "url": "https://mcp.kiwi.com"
-    },
-    "trivago": {
-      "type": "http",
-      "url": "https://mcp.trivago.com/mcp"
-    },
-    "ferryhopper": {
-      "type": "http",
-      "url": "https://mcp.ferryhopper.com/mcp"
-    },
-    "fli": {
-      "command": "fli-mcp"
-    },
-    "airbnb": {
-      "command": "npx",
-      "args": ["-y", "@openbnb/mcp-server-airbnb@latest", "--ignore-robots-txt"]
-    }
-  }
-}
-```
+| 服务 | 用途 | 需要 Key |
+|------|------|---------|
+| Skiplagged | 隐藏城市机票 | ❌ |
+| Kiwi.com | 虚拟联程航班 | ❌ |
+| Trivago | 酒店元搜索 | ❌ |
+| Ferryhopper | 欧洲渡轮搜索 | ❌ |
+| Airbnb | 民宿搜索 | ❌ |
+| Fli | Google Flights | ❌ |
 
-### 4. 启动 Claude Code
+启动 Claude Code：
 
 ```bash
 claude --strict-mcp-config --mcp-config .mcp.json
 ```
 
-## 可用工具
+## 核心功能
 
-### 免费 MCP 服务器（无需 API Key）
+### 机票搜索
 
-| 服务 | 用途 |
-|------|------|
-| Skiplagged | 隐藏城市机票 |
-| Kiwi.com | 虚拟联程航班 |
-| Trivago | 酒店元搜索 |
-| Ferryhopper | 欧洲渡轮搜索 |
-| Airbnb | 民宿搜索 |
-| Fli | Google Flights（无 key，覆盖所有航司）|
+```bash
+# 国际机票 - 使用 fli (Google Flights)
+fli flights JFK LAX 2026-05-01
+fli dates SFO LAX 2026-05    # 找最便宜的日期
 
-### 航班搜索优先级
+# 中国国内机票 - 使用 flyai (飞猪)
+flyai search-flight --departure "上海" --destination "北京" --date 2026-05-01
+```
 
-1. **Fli** - Google Flights，覆盖所有航司包括 Southwest
-2. **Duffel** - GDS 实时价格，最准确
-3. **Ignav** - REST API 备用
-4. **Skiplagged** - 隐藏城市省钱
-5. **Kiwi** - 创意联程
-6. **Seats.aero** - 奖励里程搜索（需 key）
+### 酒店搜索
 
-### 积分管理
+```bash
+# 国际酒店 - 使用 SerpAPI
+curl "https://serpapi.com/search?engine=google_hotels&q=hotels+Paris+France&..."
 
-- **AwardWallet** - 所有积分里程余额
-- **Seats.aero** - 25+ 里程计划可用性
+# 中国酒店 - 使用 flyai (飞猪)
+flyai search-hotel --dest-name "杭州" --poi-name "西湖" --check-in-date 2026-03-10 --check-out-date 2026-03-12
 
-## 示例问题
+# 高级酒店 (FHR/Chase Edit) - 本地数据，无需 API
+# skills/premium-hotels/ 目录下按城市查询
+```
 
-- "帮我搜索 JFK 到 LAX 2026-05-01 的航班"
-- "查询 UA901 航班当前状态"
-- "找 SFO 到东京最便宜的商务舱奖励航班"
-- "JFK 到 LAX 5月份最便宜的日期是哪些"
-- "帮我查一下巴黎的酒店，预算 200 美元"
-- "我有 10 万 Amex MR 积分，怎么用最划算"
+### 景点 & 火车
+
+```bash
+# 中国景点 - flyai
+flyai keyword-search --query "东京景点"
+
+# 中国火车 - flyai
+flyai search-train ...
+```
 
 ## 项目结构
 
 ```
 travel-hacking-toolkit/
-├── .env.example          # API Key 模板
+├── .env.example          # API Key 模板 ⚠️ 需填写
 ├── .mcp.json             # MCP 服务器配置
-├── CLAUDE.md             # AI 指令文件（重要）
+├── CLAUDE.md             # AI 指令文件
 ├── skills/               # 各服务 Skill 文档
-│   ├── fli/              # Google Flights
-│   ├── airlabs/          # 航班追踪
-│   ├── duffel/           # GDS 实时价格
-│   ├── seats-aero/        # 奖励航班
-│   ├── serpapi/           # Google Hotels
-│   └── ...
-├── data/                 # 本地数据文件
-│   ├── transfer-partners.json   # 积分转换比例
-│   ├── points-valuations.json  # 积分估值
-│   ├── alliances.json          # 航空联盟
-│   └── hotel-chains.json       # 酒店集团
+│   ├── fli/              # Google Flights (无需 key)
+│   ├── flyai/            # 飞猪 (需要 key)
+│   ├── serpapi/          # Google Hotels (需要 key)
+│   └── premium-hotels/   # FHR/Chase Edit (无需 key)
+├── data/                 # 本地数据
+│   ├── hotel-chains.json     # 酒店集团
+│   ├── fhr-properties.json   # FHR 酒店列表
+│   ├── chase-edit-properties.json  # Chase Edit 酒店列表
+│   └── alliances.json        # 航空联盟
 └── scripts/
-    └── setup.sh          # 交互式安装脚本
+    └── setup.sh          # 安装脚本
 ```
+
+## Skill 使用规则
+
+| 场景 | 工具 |
+|------|------|
+| 国际机票 | `fli` |
+| 中国国内机票/酒店/景点/火车 | `flyai` |
+| 国际酒店 | SerpAPI |
+| 高级酒店 (FHR/THC/Chase Edit) | `premium-hotels` 本地数据 |
+
+**自动调用规则**:
+- 询问机票 → 自动使用 `fli`
+- 询问中国国内酒店/机票/景点 → 自动使用 `flyai`
+- 询问国际酒店 → 自动使用 SerpAPI
+- 询问 FHR/Chase Edit → 自动使用 `premium-hotels`
+
+## v2 暂存功能
+
+以下功能暂未实现：
+
+- 积分/里程查询 (Seats.aero, AwardWallet)
+- 积分转换比例查询
+- 积分房搜索 (rooms.aero)
+- 积分票计算器
 
 ## 注意事项
 
-- Seats.aero 数据是缓存的，不是实时数据
-- Duffel 搜索免费，只有预订时才收费
 - Fli 不需要任何 API Key，直接可用
+- FlyAI 和 SerpAPI 需要自行申请 API key
+- Premium Hotels 使用本地 JSON 数据，无需网络请求
 - 所有 API 都有用量限制，注意查看免费额度
 
 ## 许可
