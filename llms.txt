@@ -1,63 +1,50 @@
 # Travel Hacking Toolkit
 
-> A comprehensive toolkit for searching flights, hotels, and award availability across multiple sources. Combines cash pricing (Duffel, Ignav), award search (seats.aero), portal pay-with-points (Chase UR, Amex MR), and transfer partner optimization into unified comparison tools. Designed for use by AI coding assistants and agents.
+AI 驱动的旅行积分工具，集成航班搜索、酒店查询服务。针对中国用户优化，支持国内外旅行。
 
-Key concepts:
-- **Cash prices** come from GDS feeds (Duffel, Ignav) and are bookable fares
-- **Award prices** come from loyalty program availability (seats.aero) and require transferring credit card points
-- **Portal prices** come from Chase and Amex travel portals and let you pay with UR/MR points directly
-- **Transfer partners** map credit card points to airline/hotel loyalty programs at various ratios
-- **CPP (cents per point)** measures redemption value. Higher CPP = better use of points
+## 核心 Skills
 
-## Unified Comparison (start here)
+| Skill | 用途 | API Key |
+|-------|------|---------|
+| **fli** | Google Flights 国际机票 | ❌ 不需要 |
+| **flyai** | 飞猪 中国国内机票/酒店/景点/火车 | ✅ 需要 |
+| **serpapi** | Google Hotels 国际酒店 | ✅ 需要 |
+| **premium-hotels** | Amex FHR / Chase Edit 高级酒店 | ❌ 不需要 |
 
-- [Trip Planner](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/trip-planner/SKILL.md): Full trip planning. Flights + hotels + points optimization in one shot.
-- [Compare Flights](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/compare-flights/SKILL.md): Orchestrates all flight sources in parallel. Applies transfer partner optimization automatically.
-- [Compare Hotels](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/compare-hotels/SKILL.md): Orchestrates all hotel sources including Airbnb. Identifies premium program stacking opportunities.
-- [Award Calendar](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/award-calendar/SKILL.md): Find cheapest award dates for a route over a date range. Calendar grid view.
+## Skill 使用规则
 
-## Flight Sources
+- 询问国际机票 → `fli flights ORIGIN DEST DATE`
+- 询问中国国内机票/酒店/景点 → `flyai search-hotel --dest-name "城市" ...`
+- 询问国际酒店 → SerpAPI Google Hotels API
+- 询问 FHR/Chase Edit → `skills/premium-hotels/` 本地 JSON 查询
 
-- [Duffel](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/duffel/SKILL.md): Primary cash prices. Real GDS fares with fare classes. No Southwest.
-- [Ignav](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/ignav/SKILL.md): Fast REST API for cash prices. Good for comparison.
-- [Seats.aero](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/seats-aero/SKILL.md): Award flight availability across 25+ mileage programs.
-- [Chase Travel](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/chase-travel/SKILL.md): Chase UR portal. Points Boost detection, Edit hotel benefits. Docker: `ghcr.io/borski/chase-travel`.
-- [Amex Travel](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/amex-travel/SKILL.md): Amex MR portal. IAP discount detection, FHR/THC hotels. Docker: `ghcr.io/borski/amex-travel`.
-- [Southwest](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/southwest/SKILL.md): All 4 fare classes, cash + points pricing. Docker: `ghcr.io/borski/sw-fares`.
-- [Google Flights](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/google-flights/SKILL.md): Browser-automated. All airlines including Southwest cash.
-- [SerpAPI](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/serpapi/SKILL.md): Google Flights cash prices, Google Hotels, destination discovery.
+## API Keys
 
-## Hotel Sources
+```bash
+SERPAPI_API_KEY=YOUR_SERPAPI_API_KEY_HERE   # serpapi.com
+FLYAI_API_KEY=YOUR_FLYAI_API_KEY_HERE       # open.fliggy.com
+```
 
-- [Premium Hotels](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/premium-hotels/SKILL.md): Search FHR (1,807), THC (1,299), and Chase Edit (1,553) properties by city. Local data, no API.
-- [SerpAPI](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/serpapi/SKILL.md): Google Hotels metasearch.
-- [RapidAPI](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/rapidapi/SKILL.md): Booking.com inventory.
+## 项目结构
 
-## Points Optimization
+```
+skills/
+├── fli/              # Google Flights (无需 key)
+├── flyai/            # 飞猪 (需要 key)
+├── serpapi/          # Google Hotels (需要 key)
+└── premium-hotels/   # FHR/Chase Edit (无需 key)
 
-- [Transfer Partners](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/transfer-partners/SKILL.md): Find cheapest transfer path from credit card points to loyalty programs.
-- [Trip Calculator](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/trip-calculator/SKILL.md): Cash vs points decision framework with CPP analysis and opportunity cost.
-- [WhereToCredit](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/wheretocredit/SKILL.md): Mileage earning rates by airline and booking class.
+data/
+├── hotel-chains.json
+├── fhr-properties.json
+├── chase-edit-properties.json
+├── thc-properties.json
+└── alliances.json
+```
 
-## Loyalty and Status
+## v2 暂存功能
 
-- [AwardWallet](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/awardwallet/SKILL.md): Query loyalty program balances and elite status.
-- [American Airlines](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/american-airlines/SKILL.md): AAdvantage balance check (not in AwardWallet). Docker: `ghcr.io/borski/aa-miles-check`.
-
-## Travel Planning
-
-- [Atlas Obscura](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/atlas-obscura/SKILL.md): Hidden gems and unusual attractions by destination.
-- [Scandinavia Transit](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/scandinavia-transit/SKILL.md): Train, bus, ferry routes within Norway (Entur), Sweden (ResRobot), Denmark (Rejseplanen). Denmark includes fare/zone pricing.
-- [Seatmaps](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/seatmaps/SKILL.md): Aircraft seat maps and cabin dimensions.
-
-## Data Files
-
-- [Transfer Partners JSON](https://github.com/borski/travel-hacking-toolkit/blob/main/data/transfer-partners.json): Credit card to loyalty program transfer ratios.
-- [Points Valuations JSON](https://github.com/borski/travel-hacking-toolkit/blob/main/data/points-valuations.json): CPP floor/ceiling valuations per program.
-- [FHR Properties JSON](https://github.com/borski/travel-hacking-toolkit/blob/main/data/fhr-properties.json): Amex Fine Hotels & Resorts property database.
-- [Chase Edit Properties JSON](https://github.com/borski/travel-hacking-toolkit/blob/main/data/chase-edit-properties.json): Chase Sapphire Hotel Collection properties.
-
-## Optional
-
-- [RapidAPI](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/rapidapi/SKILL.md): Booking.com hotel prices. Secondary source.
-- [Google Flights](https://github.com/borski/travel-hacking-toolkit/blob/main/skills/google-flights/SKILL.md): Browser-automated fallback for Southwest or when APIs fail.
+- 积分/里程查询 (Seats.aero, AwardWallet)
+- 积分转换比例查询
+- 积分房搜索
+- 积分票计算器
